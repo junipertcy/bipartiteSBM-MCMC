@@ -13,6 +13,7 @@ project(sbm_inference)
 #       but stable Debian distributions tend to distribute CMAKE 2.8 as the default.
 #
 # Solution found @ http://stackoverflow.com/a/25836953/1851837.
+include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++14" COMPILER_SUPPORTS_CXX14)
 
 if(COMPILER_SUPPORTS_CXX14)
