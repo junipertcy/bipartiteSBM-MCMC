@@ -9,7 +9,6 @@ src/cmake-build-debug/*
 
 # misc
 .idea/*
-cmake_tests/*
 
 # Created by https://www.gitignore.io/api/cmake,c++
 
