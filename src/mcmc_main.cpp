@@ -37,7 +37,7 @@ int main(int argc, char const *argv[]) {
     unsigned int sampling_steps;
     unsigned int sampling_frequency;
     unsigned int steps_await;
-    bool randomize = true;
+    bool randomize = false;
     bool maximize = false;
     bool estimate = false;
     bool uni1 = false;  // used for experimental comparison
@@ -58,13 +58,10 @@ int main(int argc, char const *argv[]) {
             ("membership_path", po::value<std::string>(&membership_path), "Path to membership file.")
             ("n,n", po::value<uint_vec_t>(&n)->multitoken(), "Block sizes vector.\n")
             ("types,y", po::value<uint_vec_t>(&y)->multitoken(), "Block types vector. (when -v is on)\n")
-            ("burn_in,b", po::value < unsigned
-    int > (&burn_in)->default_value(1000), "Burn-in time.")
-    ("sampling_steps,t", po::value < unsigned
-    int > (&sampling_steps)->default_value(1000),
+            ("burn_in,b", po::value < unsigned int > (&burn_in)->default_value(1000), "Burn-in time.")
+    ("sampling_steps,t", po::value < unsigned int > (&sampling_steps)->default_value(1000),
             "Number of sampling steps in marginalize mode. Length of the simulated annealing process.")
-    ("sampling_frequency,f", po::value < unsigned
-    int > (&sampling_frequency)->default_value(10),
+    ("sampling_frequency,f", po::value < unsigned int > (&sampling_frequency)->default_value(10),
             "Number of step between each sample in marginalize mode. Unused in likelihood maximization mode.")
     ("bisbm_partition,z", po::value<uint_vec_t>(&z)->multitoken(), "BISBM number of blocks to be inferred.")
             ("maximize,m", "Maximize likelihood instead of marginalizing.")
@@ -85,10 +82,12 @@ int main(int argc, char const *argv[]) {
              "Logarithmic: c (rate of decline)\n"\
              "             d (delay > 1)\n"\
              "Constant: T (temperature > 0)")
-            ("steps_await,x", po::value < unsigned
-    int > (&steps_await)->default_value(1000),
-            "Stop the augorithm after x successive sweeps occurred and both the max/min entropy values did not change.")
-    ("epsilon,E", "The parameter epsilon for faster vertex proposal moves (in Tiago Peixoto's prescription).")
+            ("steps_await,x", po::value<unsigned int>(&steps_await)->default_value(1000),
+            "Stop the algorithm after x successive sweeps occurred and both the max/min entropy values did not change.")
+    ("epsilon,E", po::value<double>(&epsilon)->default_value(1.),
+            "The parameter epsilon for faster vertex proposal moves (in Tiago Peixoto's prescription).")
+            ("randomize,r",
+             "Randomize initial block state.")
             ("seed,d", po::value < unsigned
     int > (&seed), "Seed of the pseudo random number generator (Mersenne-twister 19937). "\
             "A random seed is used if seed is not specified.")
@@ -220,12 +219,17 @@ int main(int argc, char const *argv[]) {
         std::clog << "An epsilon param is assigned; we will use Tiago's smart MCMC moves. \n";
         use_mh_tiago = true;
     } else {
+        std::clog << "An epsilon param is NOT assigned; we will use naive MCMC moves. \n";
         use_mh_naive = true;
+    }
+    if (var_map.count("randomize") > 0) {
+        randomize = true;
     }
     if (var_map.count("seed") == 0) {
         // seeding based on the clock
         seed = (unsigned int) std::chrono::high_resolution_clock::now().time_since_epoch().count();
     }
+
     /* ~~~~~ Setup objects ~~~~~~~*/
     std::mt19937 engine(seed);
     // number of blocks

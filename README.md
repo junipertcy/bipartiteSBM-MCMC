@@ -1,10 +1,8 @@
-# bisbm_block_estimation_mcmc
+# bipartiteSBM-MCMC
 
-C++ implementation of a MCMC sampler for the bipartite degree-corrected Stochastic Block Model. Three sampling 
-procedures are provided. In `marginalize` and `anneal` mode, the group memberships of each node are found assuming we 
-know the number of communities, (Ka, Kb), of the system. In `estimate` mode, one samples the posterior distribution as 
-we do not know the group sizes, and (Ka, Kb) are also updated and sampled.
+**bipartiteSBM-MCMC** is a MCMC sampler for the degree-corrected bipartite Stochastic Block Model. Three sampling procedures are provided. In `marginalize` and `anneal` mode, the group memberships of each node are found assuming we know the number of communities, (Ka, Kb), of the system. In `estimate` mode, one samples the posterior distribution directly assuming we do not know the number of groups.
 
+It is also used as a submodule for the [det_k_bisbm](https://github.com/junipertcy/det_k_bisbm) library.
 
 ## Table of content
 
@@ -67,7 +65,7 @@ where $t$ is the MCMC step. The paramters of these cooling schedule are passed l
 
     bin/mcmc_history -e dataset/southernWomen.edgelist0 -n 4 4 4 3 3 3 3 3 3 2 -t 1000 -y 18 14 -z 5 5 --estimate -f 10 > blocks.txt
 
-## Companion article
+## References
 
 Please cite
 

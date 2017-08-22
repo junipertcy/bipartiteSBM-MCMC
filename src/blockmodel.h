@@ -75,7 +75,7 @@ public:
 
     unsigned int get_KB() const noexcept;
 
-    double compute_entropy() const noexcept;
+    double compute_entropy_from_m_mr(uint_mat_t m, uint_vec_t m_r) const noexcept;
 
     double get_log_factorial(int number) const noexcept;
 
@@ -99,9 +99,14 @@ public:
 
     int_vec_t get_k_r_from_mb(uint_vec_t mb) const noexcept;
 
-    double get_int_data_likelihood_from_mb(uint_vec_t mb) const noexcept;
+    double get_int_data_likelihood_from_mb_uni(uint_vec_t mb) const noexcept;
 
-    double get_log_posterior_from_mb(uint_vec_t mb) const noexcept;
+    double get_int_data_likelihood_from_mb_bi(uint_vec_t mb) const noexcept;
+
+    double get_log_posterior_from_mb_uni(uint_vec_t mb) const noexcept;
+
+    double get_log_posterior_from_mb_bi(uint_vec_t mb) const noexcept;
+
 
 private:
     /// State variable
@@ -121,6 +126,8 @@ private:
     uint_vec_t types_;
     unsigned int num_edges_;
     double entropy_from_degree_correction_;
+    uint_mat_t adj_list_;
+
     /// Internal distribution. Generator must be passed as a service
     std::uniform_int_distribution<> random_block_;
     std::uniform_int_distribution<> random_node_;

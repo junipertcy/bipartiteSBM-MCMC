@@ -38,9 +38,6 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &type
         }
     }
     num_edges_ /= 2;
-    for (unsigned int node = 0; node < memberships.size(); ++node) {
-        deg_[node] /= 2;
-    }
 
     double deg_factorial = 0;
     for (unsigned int node = 0; node < memberships.size(); ++node) {
@@ -53,6 +50,23 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &type
     }
 
     compute_k();
+
+    // Note that Tiago's MCMC proposal jumps has to randomly access elements in an adjacency list
+    // Here, we define an vectorized data structure to make such data access O(1) [else it'll be O(n)].
+
+    adj_list_.resize(adj_list_ptr_->size());
+    for (auto i = 0; i < adj_list_ptr_->size(); ++i) {
+        adj_list_[i].resize(adj_list_ptr_->at(i).size(), 0);
+    }
+
+    for (unsigned int node = 0; node < memberships_.size(); ++node) {
+        unsigned int idx = 0;
+        for (auto nb = adj_list_ptr_->at(node).begin(); nb != adj_list_ptr_->at(node).end(); ++nb) {
+            adj_list_[node][idx] = *nb;
+            ++idx;
+        }
+    }
+
 }
 
 bool blockmodel_t::change_KA(std::mt19937 &engine) noexcept {
@@ -256,9 +270,7 @@ bool blockmodel_t::change_KB(std::mt19937 &engine) noexcept {
     return false;
 }
 
-double blockmodel_t::compute_entropy() const noexcept {
-    uint_mat_t m = get_m();
-    uint_vec_t m_r = get_m_r();
+double blockmodel_t::compute_entropy_from_m_mr(uint_mat_t m, uint_vec_t m_r) const noexcept {
     int_vec_t n = get_size_vector();
 
     double entropy = -(double) num_edges_ - entropy_from_degree_correction_;
@@ -981,7 +993,8 @@ std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt19937 
     double R_t = 0.;
     unsigned int vertex_j;
     unsigned int proposal_t;
-    unsigned int vertex_j_otherwise;
+    uint_mat_t m = get_m();
+    uint_vec_t m_r = get_m_r();
     std::vector<mcmc_state_t> moves(1);
     int proposal_membership = 0;
 
@@ -989,26 +1002,40 @@ std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt19937 
     moves[0].source = memberships_[moves[0].vertex];
     moves[0].target = moves[0].source;
 
-    // Here, instead of naively move to adjacent blocks, we follow Tiago Peixoto's approach (PRE 89, 012804 [2014])
-    set<unsigned int>::const_iterator it_proposal_t(adj_list_ptr_->at(moves[0].vertex).begin());
-    advance(it_proposal_t, (int) (random_real(engine) * adj_list_ptr_->at(moves[0].vertex).size()));
-    vertex_j = *it_proposal_t;
-    proposal_t = memberships_[vertex_j];
-    if (types_[moves[0].vertex] == 0) {
-        proposal_membership = int(random_real(engine) * KA_);
-        R_t = epsilon * KA_ / (get_m_r()[proposal_t] + epsilon * KA_);
-    } else if (types_[moves[0].vertex] == 1) {
-        proposal_membership = int(random_real(engine) * KB_) + KA_;
-        R_t = epsilon * KB_ / (get_m_r()[proposal_t] + epsilon * KB_);
+    while (moves[0].source == moves[0].target) {
+
+        // Here, instead of naively move to adjacent blocks, we follow Tiago Peixoto's approach (PRE 89, 012804 [2014])
+        auto which_to_move = (int) (random_real(engine) * adj_list_[moves[0].vertex].size());
+        vertex_j = adj_list_[moves[0].vertex][which_to_move];
+        proposal_t = memberships_[vertex_j];
+        if (types_[moves[0].vertex] == 0) {
+            proposal_membership = int(random_real(engine) * KA_);
+            R_t = epsilon * (KA_) / (m_r[proposal_t] + epsilon * (KA_));
+        } else if (types_[moves[0].vertex] == 1) {
+            proposal_membership = int(random_real(engine) * KB_) + KA_;
+            R_t = epsilon * (KB_) / (m_r[proposal_t] + epsilon * (KB_));
+        }
+        if (random_real(engine) < R_t) {
+            moves[0].target = unsigned(proposal_membership);
+        } else {
+            // TODO: May exist a better way of writing...
+            which_to_move = (int) (random_real(engine) * m_r[proposal_t]);
+            unsigned int counter = 0;
+            for (auto s = 0; s < m_r.size(); ++s) {
+                counter += m[proposal_t][s];
+                if (counter > which_to_move) {
+                    moves[0].target = unsigned(s);
+                    break;
+                }
+            }
+        }
     }
-    if (random_real(engine) < R_t) {
-        moves[0].target = unsigned(proposal_membership);
-    } else {
-        set<unsigned int>::const_iterator it_proposal_s(adj_list_ptr_->at(vertex_j).begin());
-        advance(it_proposal_s, (int) (random_real(engine) * adj_list_ptr_->at(vertex_j).size()));
-        vertex_j_otherwise = *it_proposal_s;
-        moves[0].target = memberships_[vertex_j_otherwise];
-    }
+
+//    moves[0].vertex = 0;
+//    moves[0].source = 0;
+//    moves[0].target = 1;
+
+
     return moves;
 }
 
@@ -1321,7 +1348,7 @@ double blockmodel_t::get_log_factorial(int number) const noexcept {
 
 }
 
-double blockmodel_t::get_int_data_likelihood_from_mb(uint_vec_t mb) const noexcept {
+double blockmodel_t::get_int_data_likelihood_from_mb_uni(uint_vec_t mb) const noexcept {
     uint_mat_t m_rs_ = get_m_from_membership(mb);
     int_vec_t n_r_ = get_n_r_from_mb(mb);
     int_vec_t k_r_ = get_k_r_from_mb(mb);
@@ -1340,7 +1367,27 @@ double blockmodel_t::get_int_data_likelihood_from_mb(uint_vec_t mb) const noexce
     return log_idl;
 }
 
-double blockmodel_t::get_log_posterior_from_mb(uint_vec_t mb) const noexcept {
+double blockmodel_t::get_int_data_likelihood_from_mb_bi(uint_vec_t mb) const noexcept {
+    uint_mat_t m_rs_ = get_m_from_membership(mb);
+    int_vec_t n_r_ = get_n_r_from_mb(mb);
+    int_vec_t k_r_ = get_k_r_from_mb(mb);
+    double p_ = 1. * num_edges_ / (double) get_nsize_A() / (double) get_nsize_B();
+    double log_idl = 0.;
+
+    for (auto r = 0; r < n_r_.size(); ++r) {
+        log_idl +=
+                k_r_[r] * std::log(n_r_[r]) + get_log_factorial(n_r_[r] - 1) -
+                get_log_factorial(n_r_[r] + k_r_[r] - 1);
+        //log_idl += get_log_factorial(m_rs_[r][r]) - (m_rs_[r][r] + 1.) * std::log(0.5 * p_ * n_r_[r] * n_r_[r] + 1);
+        for (auto s = 0; s < r; ++s) {
+            log_idl += get_log_factorial(m_rs_[r][s]) - (m_rs_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
+        }
+    }
+    return log_idl;
+}
+
+
+double blockmodel_t::get_log_posterior_from_mb_uni(uint_vec_t mb) const noexcept {
     uint_mat_t m_rs_ = get_m_from_membership(mb);
     int_vec_t n_r_ = get_n_r_from_mb(mb);
     int_vec_t k_r_ = get_k_r_from_mb(mb);
@@ -1354,6 +1401,29 @@ double blockmodel_t::get_log_posterior_from_mb(uint_vec_t mb) const noexcept {
                 get_log_factorial(n_r_[r] + k_r_[r] - 1);
         log_posterior +=
                 get_log_factorial(m_rs_[r][r]) - (m_rs_[r][r] + 1.) * std::log(0.5 * p_ * n_r_[r] * n_r_[r] + 1);
+        for (auto s = 0; s < r; ++s) {
+            log_posterior +=
+                    get_log_factorial(m_rs_[r][s]) - (m_rs_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
+        }
+    }
+    log_posterior -= KA_ * (nsize_A_ - 2.) + KB_ * (nsize_B_ - 2.);
+
+
+    return log_posterior;
+}
+
+double blockmodel_t::get_log_posterior_from_mb_bi(uint_vec_t mb) const noexcept {
+    uint_mat_t m_rs_ = get_m_from_membership(mb);
+    int_vec_t n_r_ = get_n_r_from_mb(mb);
+    int_vec_t k_r_ = get_k_r_from_mb(mb);
+    double p_ = 1. * num_edges_ / (double) get_nsize_A() / (double) get_nsize_B();
+    double log_posterior = 0.;
+
+    for (auto r = 0; r < n_r_.size(); ++r) {
+        log_posterior += get_log_factorial(n_r_[r]);
+        log_posterior +=
+                k_r_[r] * std::log(n_r_[r]) + get_log_factorial(n_r_[r] - 1) -
+                get_log_factorial(n_r_[r] + k_r_[r] - 1);
         for (auto s = 0; s < r; ++s) {
             log_posterior +=
                     get_log_factorial(m_rs_[r][s]) - (m_rs_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);

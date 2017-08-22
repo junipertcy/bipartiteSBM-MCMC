@@ -32,10 +32,9 @@ bool metropolis_hasting::step(blockmodel_t &blockmodel,
                               const float_mat_t &p,
                               double temperature,
                               std::mt19937 &engine) noexcept {
-    // TODO: this function makes the program unable to compile in -O3 mode
     std::vector<mcmc_state_t> moves = sample_proposal_distribution(blockmodel, engine);
-    double a = std::pow(transition_ratio(blockmodel, p, moves) * std::pow(accu_r_, temperature), 1 / temperature);
-    double b = std::pow(transition_ratio(blockmodel, p, moves), 1 / temperature);
+    double a = std::pow(transition_ratio(blockmodel, p, moves), 1 / temperature) * accu_r_;
+//    double b = std::pow(transition_ratio(blockmodel, p, moves), 1 / temperature);
     if (random_real(engine) < a) {
         blockmodel.apply_mcmc_moves(moves);
         return true;
@@ -163,16 +162,30 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
                                     unsigned int num_samples,
                                     std::mt19937 &engine) noexcept {
     unsigned int accepted_steps = 0;
+    unsigned int t_1000 = sampling_frequency * num_samples - 1000;
     // Sampling
     for (unsigned int t = 0; t < sampling_frequency * num_samples; ++t) {
         if (t % sampling_frequency == 0) {
             // Sample the blockmodel
-            if (t > 1) { // was: 100000
+            if (t >= t_1000) { // was: 100000
 #if OUTPUT_HISTORY == 1 // compile time output
                 if (blockmodel.get_is_bipartite()) {
-                    std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.get_log_posterior_from_mb(blockmodel.get_memberships()) << "\n";
+                    std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.get_log_posterior_from_mb_bi(blockmodel.get_memberships());
+                    uint_vec_t mb_ = blockmodel.get_memberships();
+                    for (auto i = 0; i < mb_.size(); ++i) {
+                        std::cout << "," << mb_[i];
+                    }
+                    std::cout << "\n";
+
+                  //  std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.get_log_posterior_from_mb(blockmodel.get_memberships()) << "\n";
+
                 } else {
-                    std::cout << t << "," << blockmodel.get_K() << "," << blockmodel.get_log_posterior_from_mb(blockmodel.get_memberships()) << "\n";
+                    std::cout << t << "," << blockmodel.get_K() << "," << blockmodel.get_log_posterior_from_mb_uni(blockmodel.get_memberships());
+                    uint_vec_t mb_ = blockmodel.get_memberships();
+                    for (auto i = 0; i < mb_.size(); ++i) {
+                       std::cout << "," << mb_[i];
+                    }
+                    std::cout << "\n";
                 }
                 //output_vec<uint_vec_t>(memberships, std::cout)
 #endif
@@ -298,10 +311,8 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
     double epsilon = blockmodel.get_epsilon();
 
     int_vec_t ki = blockmodel.get_k(v);
+    int_vec_t deg = blockmodel.get_degree();
     int_vec_t n = blockmodel.get_size_vector();
-
-    unsigned int num_edges = blockmodel.get_num_edges();
-    double entropy_from_degree_correction = blockmodel.get_entropy_from_degree_correction();
 
     uint_mat_t m0 = blockmodel.get_m();
     uint_vec_t m0_r = blockmodel.get_m_r();
@@ -309,62 +320,20 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
     uint_mat_t m1 = m0;
     uint_vec_t m1_r = m0_r;
 
-    unsigned int m_r_ = 0;
+    m1_r[r] -= deg[v];
+    m1_r[s] += deg[v];
 
-    if (r == s) {
-        m1 = m0;
-    } else {
-        for (unsigned int l = 0; l < n.size(); ++l) {
-            if (l != r && l != s) {
-                m1[r][l] = m0[r][l] - ki[l];
-                m1[l][r] = m1[r][l];
+    for (unsigned int i = 0; i < ki.size(); ++i) {
+        if (ki[i] != 0) {
+            m1[r][i] -= ki[i];
+            m1[s][i] += ki[i];
 
-                m1[s][l] = m0[s][l] + ki[l];
-                m1[l][s] = m1[s][l];
-            }
-        }
-        m1[r][s] = m0[r][s] - ki[s] + ki[r];
-        m1[s][r] = m1[r][s];
-    }
-
-
-    for (unsigned int l = 0; l < n.size(); ++l) {
-        if (l != r && l != s) {
-            m1[r][l] -= ki[l];
-            m1[l][r] = m1[r][l];
-
-            m1[s][l] += ki[l];
-            m1[l][s] = m1[s][l];
-        }
-    }
-
-    for (unsigned int r = 0; r < n.size(); ++r) {
-        m_r_ = 0;
-        for (unsigned int s = 0; s < n.size(); ++s) {
-            m_r_ += m1[r][s];
-        }
-        m1_r[r] = m_r_;
-    }
-
-    double entropy0 = -(double) num_edges - entropy_from_degree_correction;
-    double entropy1 = entropy0;
-
-    for (unsigned int r_ = 0; r_ < n.size(); ++r_) {
-        for (unsigned int s_ = 0; s_ < n.size(); ++s_) {
-            if (m0_r[r_] * m0_r[s_] * m0[r_][s_] != 0) {
-                entropy0 -= 1. / 2. * (double) m0[r_][s_] *
-                            std::log((double) m0[r_][s_] / (double) m0_r[r_] / (double) m0_r[s_]);
-            }
-            if (m1_r[r_] * m1_r[s_] * m1[r_][s_] != 0) {
-                entropy1 -= 1. / 2. * (double) m1[r_][s_] *
-                            std::log((double) m1[r_][s_] / (double) m1_r[r_] / (double) m1_r[s_]);
-            }
+            m1[i][r] = m1[r][i];
+            m1[i][s] = m1[s][i];
 
         }
     }
 
-
-//     Tiago Peixoto's trick
     double accu0_ = 0;
     double accu1_ = 0;
     int B_;
@@ -379,6 +348,27 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
         accu1_ += (double) ki[t_] * ((double) m1[t_][r] + epsilon) / ((double) m1_r[t_] + epsilon * B_);
     }
 
+    double entropy0 = 0.;
+    double entropy1 = 0.;
+    for (unsigned int i = 0; i < ki.size(); ++i) {  // TODO: re-write it
+            if (m0_r[r] * m0_r[i] * m0[r][i] != 0) {
+                entropy0 -= 1. / 1. * (double) m0[r][i] *
+                            std::log((double) m0[r][i] / (double) m0_r[r] / (double) m0_r[i]);
+            }
+            if (m0_r[s] * m0_r[i] * m0[s][i] != 0) {
+                entropy0 -= 1. / 1. * (double) m0[s][i] *
+                            std::log((double) m0[s][i] / (double) m0_r[s] / (double) m0_r[i]);
+            }
+            if (m1_r[r] * m1_r[i] * m1[r][i] != 0) {
+                entropy1 -= 1. / 1. * (double) m1[r][i] *
+                            std::log((double) m1[r][i] / (double) m1_r[r] / (double) m1_r[i]);
+            }
+            if (m1_r[s] * m1_r[i] * m1[s][i] != 0) {
+                entropy1 -= 1. / 1. * (double) m1[s][i] *
+                            std::log((double) m1[s][i] / (double) m1_r[s] / (double) m1_r[i]);
+            }
+    }
+
     accu_r_ = accu1_ / accu0_;
     if (entropy0 >= entropy_max_) {
         entropy_max_ = entropy0;
@@ -386,7 +376,7 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
     if (entropy0 <= entropy_min_) {
         entropy_min_ = entropy0;
     }
-    double a = std::exp(+entropy0 - entropy1);
+    double a = std::exp(- (entropy1 - entropy0));
     return a;
 }
 
@@ -435,7 +425,7 @@ double mh_riolo_uni1::transition_ratio(const blockmodel_t &blockmodel,
         }
 
     }
-    double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb(states[0].memberships);
+    double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb_uni(states[0].memberships);
 
     accu_r_ = 1.;
 
@@ -454,22 +444,20 @@ double mh_riolo_uni2::transition_ratio(const blockmodel_t &blockmodel,
     int_vec_t n_r_0_ = blockmodel.get_size_vector();
     unsigned int num_edges = blockmodel.get_num_edges();
     int_vec_t k_r_0_ = blockmodel.get_k_r_from_mb(blockmodel.get_memberships());
-    double p_0_ = 2. * num_edges / (double) blockmodel.get_N() / (double) blockmodel.get_N();
+    double p_0_ = 1 * num_edges / (double) blockmodel.get_nsize_A() / (double) blockmodel.get_nsize_B();
 
     double log_idl_0 = 0.;
 
     for (auto r = 0; r < n_r_0_.size(); ++r) {
         log_idl_0 += k_r_0_[r] * std::log(n_r_0_[r]) + blockmodel.get_log_factorial(n_r_0_[r] - 1) -
                      blockmodel.get_log_factorial(n_r_0_[r] + k_r_0_[r] - 1);
-        log_idl_0 += blockmodel.get_log_factorial(m_rs_0_[r][r]) -
-                     (m_rs_0_[r][r] + 1.) * std::log(0.5 * p_0_ * n_r_0_[r] * n_r_0_[r] + 1);
         for (auto s = 0; s < r; ++s) {
             log_idl_0 += blockmodel.get_log_factorial(m_rs_0_[r][s]) -
                          (m_rs_0_[r][s] + 1.) * std::log(p_0_ * n_r_0_[r] * n_r_0_[s] + 1);
         }
 
     }
-    double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb(states[0].memberships);
+    double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb_bi(states[0].memberships);
 
     accu_r_ = 1.;
 
@@ -494,7 +482,8 @@ double mh_riolo::transition_ratio(const blockmodel_t &blockmodel,
     unsigned int num_edges = blockmodel.get_num_edges();
     int_vec_t k_r_0_ = blockmodel.get_k_r_from_mb(blockmodel.get_memberships());
 
-    double p_0_ = 2. * num_edges / (double) blockmodel.get_N() / (double) blockmodel.get_N();
+    // for bipartite system, P(w) is slightly modified.
+    double p_0_ = 1. * num_edges / (double) blockmodel.get_nsize_A() / (double) blockmodel.get_nsize_B();
 
     double log_idl_0 = 0.;
 
@@ -503,8 +492,10 @@ double mh_riolo::transition_ratio(const blockmodel_t &blockmodel,
                      blockmodel.get_log_factorial(n_r_0_[r] + k_r_0_[r] - 1);
 //        std::clog << log_idl_0 << "\n";
 //        std::clog << k_r_0_[r] << " , " << n_r_0_[r] << " , " << blockmodel.get_log_factorial(n_r_0_[r] - 1) << "\n";
-        log_idl_0 += blockmodel.get_log_factorial(m_rs_0_[r][r]) -
-                     (m_rs_0_[r][r] + 1.) * std::log(0.5 * p_0_ * n_r_0_[r] * n_r_0_[r] + 1);
+
+// no such terms in bipartite structure.
+//        log_idl_0 += blockmodel.get_log_factorial(m_rs_0_[r][r]) -
+//                     (m_rs_0_[r][r] + 1.) * std::log(0.5 * p_0_ * n_r_0_[r] * n_r_0_[r] + 1);
         for (auto s = 0; s < r; ++s) {
             log_idl_0 += blockmodel.get_log_factorial(m_rs_0_[r][s]) -
                          (m_rs_0_[r][s] + 1.) * std::log(p_0_ * n_r_0_[r] * n_r_0_[s] + 1);
@@ -512,7 +503,7 @@ double mh_riolo::transition_ratio(const blockmodel_t &blockmodel,
 
     }
 
-    double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb(states[0].memberships);
+    double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb_bi(states[0].memberships);
 //    double entropy_from_degree_correction = blockmodel.get_entropy_from_degree_correction();
 //    entropy_from_degree_correction = 0.;
 //    double entropy0 = -(double) num_edges - entropy_from_degree_correction;
