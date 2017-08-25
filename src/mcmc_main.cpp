@@ -421,9 +421,12 @@ int main(int argc, char const *argv[]) {
     std::clog << "\n";
 
     std::clog << "multipartite_blocks: (z=" << z.size() << "): ";
-    for (auto it = z.begin(); it != z.end(); ++it)
+
+    for (auto it = z.begin(); it != z.end(); ++it) {
         std::clog << *it << " ";
+    }
     std::clog << "\n";
+
     if (maximize) {
         std::clog << "cooling_schedule: " << cooling_schedule << "\n";
         std::clog << "cooling_schedule_kwargs: ";

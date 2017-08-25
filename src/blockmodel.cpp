@@ -1403,7 +1403,7 @@ double blockmodel_t::get_log_posterior_from_mb_uni(uint_vec_t mb) const noexcept
                     get_log_factorial(m_rs_[r][s]) - (m_rs_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
         }
     }
-    log_posterior -= KA_ * (nsize_A_ - 2.) + KB_ * (nsize_B_ - 2.);
+    log_posterior -= K_ * (memberships_.size() - 2.);
 
 
     return log_posterior;
@@ -1426,6 +1426,7 @@ double blockmodel_t::get_log_posterior_from_mb_bi(uint_vec_t mb) const noexcept 
                     get_log_factorial(m_rs_[r][s]) - (m_rs_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
         }
     }
+
     log_posterior -= KA_ * (nsize_A_ - 2.) + KB_ * (nsize_B_ - 2.);
 
 
