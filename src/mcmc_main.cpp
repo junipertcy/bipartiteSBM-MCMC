@@ -229,8 +229,7 @@ int main(int argc, char const *argv[]) {
 
     /* ~~~~~ Setup objects ~~~~~~~*/
     std::mt19937 engine(seed);
-    // number of blocks
-    unsigned int g = unsigned(int(n.size()));
+
 
     uint_vec_t memberships_init;
     if (var_map.count("membership_path") != 0) {
@@ -259,6 +258,12 @@ int main(int argc, char const *argv[]) {
             }
         } else {
             randomize = false;
+            // We have to supply a correct z parameter
+            n.resize(z[0] + z[1], 0);
+            for (unsigned int r = 0; r < memberships_init.size(); ++r) {
+                ++n[memberships_init[r]];
+            }
+
             std::clog << " ---- read membership from file! ---- \n";
         }
     } else {
@@ -282,13 +287,18 @@ int main(int argc, char const *argv[]) {
             }
         }
     }
+
+    // number of blocks
+    auto g = unsigned(int(n.size()));
+
+
     uint_vec_t types_init;
     unsigned int KA;
     unsigned int KB;
     unsigned int NA;
     unsigned int NB;
     // number of types (must be equal to 2; TODO: support multipartite version!)
-    unsigned int num_types = unsigned(int(y.size()));
+    auto num_types = unsigned(int(y.size()));
     if (num_types != 2) {
         std::cerr << "Number of types must be equal to 2!" << "\n";
         return 1;

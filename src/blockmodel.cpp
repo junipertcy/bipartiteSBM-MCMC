@@ -38,7 +38,6 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &type
         }
     }
     num_edges_ /= 2;
-
     double deg_factorial = 0;
     for (unsigned int node = 0; node < memberships.size(); ++node) {
         deg_factorial = 0;
@@ -48,9 +47,7 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &type
         }
         entropy_from_degree_correction_ += deg_factorial;
     }
-
     compute_k();
-
     // Note that Tiago's MCMC proposal jumps has to randomly access elements in an adjacency list
     // Here, we define an vectorized data structure to make such data access O(1) [else it'll be O(n)].
 
@@ -58,7 +55,6 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &type
     for (auto i = 0; i < adj_list_ptr_->size(); ++i) {
         adj_list_[i].resize(adj_list_ptr_->at(i).size(), 0);
     }
-
     for (unsigned int node = 0; node < memberships_.size(); ++node) {
         unsigned int idx = 0;
         for (auto nb = adj_list_ptr_->at(node).begin(); nb != adj_list_ptr_->at(node).end(); ++nb) {
@@ -66,7 +62,6 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &type
             ++idx;
         }
     }
-
 }
 
 bool blockmodel_t::change_KA(std::mt19937 &engine) noexcept {
