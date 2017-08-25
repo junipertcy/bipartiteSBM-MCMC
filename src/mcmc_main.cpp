@@ -112,10 +112,7 @@ int main(int argc, char const *argv[]) {
         std::cout << "edge_list_path is required (-e flag)\n";
         return 1;
     }
-    if (var_map.count("n") == 0) {
-        std::cout << "n is required (-n flag)\n";
-        return 1;
-    }
+
     if (var_map.count("types") == 0 && var_map.count("use_bisbm") > 0) {
         std::cout << "types is required for bisbm mode (-y flag)\n";
         return 1;
@@ -241,6 +238,10 @@ int main(int argc, char const *argv[]) {
 
         if (!load_memberships(memberships_init, membership_path)) {
             std::clog << "WARNING: error in loading memberships, read memberships from block sizes\n";
+            if (var_map.count("n") == 0) {
+                std::cout << "n is required (-n flag)\n";
+                return 1;
+            }
             // memberships from block sizes
             {
                 unsigned int accu = 0;
@@ -262,6 +263,10 @@ int main(int argc, char const *argv[]) {
         }
     } else {
         // memberships from block sizes
+        if (var_map.count("n") == 0) {
+            std::cout << "n is required (-n flag)\n";
+            return 1;
+        }
         {
             unsigned int accu = 0;
             for (auto it = n.begin(); it != n.end(); ++it) {

@@ -532,13 +532,15 @@ std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo(std::mt19937 &en
     // states[0].memberships = memberships_;
 
     // decide whether to update type-a nodes or type-b nodes
-    double num_nodes = (double) states[0].memberships.size();
-    double num_nodes_a = (double) nsize_A_;
-    double num_nodes_b = (double) nsize_B_;
+    auto num_nodes = (double) states[0].memberships.size();
+    auto num_nodes_a = (double) nsize_A_;
+    auto num_nodes_b = (double) nsize_B_;
 
     if (random_real(engine) < num_nodes_a / num_nodes) {
-        if (random_real(engine) < 1. / (num_nodes - 1)) {
-            unsigned int r = unsigned(int(random_real(engine) * (KA_ + 1)));
+//        if (random_real(engine) < 1.) {
+
+            if (random_real(engine) < 1. / (num_nodes - 1)) {
+            auto r = unsigned(int(random_real(engine) * (KA_ + 1)));
             unsigned int s = r;
             while (s == r) {
                 s = unsigned(int(random_real(engine) * (KA_ + 1)));
@@ -608,7 +610,7 @@ std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo(std::mt19937 &en
                 }
 
                 unsigned int counter = 0;
-                unsigned int rnd_node_in_label_r = (unsigned) (int) (random_real(engine) * n_[r]);
+                auto rnd_node_in_label_r = (unsigned) (int) (random_real(engine) * n_[r]);
 
                 for (unsigned int i = 0; i < memberships_.size(); ++i) {
                     if (types_[i] == 0 && memberships_[i] == r) {
@@ -633,7 +635,7 @@ std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo(std::mt19937 &en
         }
     } else {
         if (random_real(engine) < 1. / (num_nodes_b - 1)) {  // type-II move for type-b nodes
-            unsigned int r = unsigned(int(random_real(engine) * (KB_ + 1)));
+            auto r = unsigned(int(random_real(engine) * (KB_ + 1)));
             unsigned int s = r;
             while (s == r) {
                 s = unsigned(int(random_real(engine) * (KB_ + 1)));
@@ -691,14 +693,14 @@ std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo(std::mt19937 &en
                 states[0].memberships = memberships_;  // we do nothing
                 return states;
             } else {
-                unsigned int r = unsigned(int(random_real(engine) * KB_));
+                auto r = unsigned(int(random_real(engine) * KB_));
                 unsigned int s = r;
                 while (s == r) {
                     s = unsigned(int(random_real(engine) * KB_));
                 }
 
                 unsigned int counter = 0;
-                unsigned int rnd_node_in_label_r = (unsigned) (int) (random_real(engine) * n_[r + KA_]);
+                auto rnd_node_in_label_r = (unsigned) (int) (random_real(engine) * n_[r + KA_]);
                 for (unsigned int i = 0; i < states[0].memberships.size(); ++i) {
                     if (types_[i] == 1 && memberships_[i] == r + KA_) {
                         if (counter == rnd_node_in_label_r) {
