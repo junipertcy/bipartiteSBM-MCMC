@@ -362,8 +362,8 @@ int main(int argc, char const *argv[]) {
     // Bind proper Metropolis-Hasting algorithm
     // We have three modes: marginalizing, estimating, and annealing
     //
-    // marginalizing: naive_mcmc, tiago_mcmc, and heat_bath are allowed
-    // estimating: only heat_bath is allowed
+    // marginalizing: naive_mcmc and tiago_mcmc are allowed
+    // estimating: only riolo_mcmc is allowed
     // annealing: naive_mcmc and tiago_mcmc is allowed
 
     std::unique_ptr<metropolis_hasting> algorithm;
@@ -392,9 +392,6 @@ int main(int argc, char const *argv[]) {
         } else if (use_mh_tiago) {
             std::clog << "We use smart jumps to marginalize the posterior...\n";
             algorithm = std::make_unique<mh_tiago>();
-        } else { // heat-bath
-            std::clog << "We use heat-bath jumps to marginalize the posterior...\n";
-            algorithm = std::make_unique<mh_heat_bath>();
         }
     }
     /* ~~~~~ Logging ~~~~~~~*/

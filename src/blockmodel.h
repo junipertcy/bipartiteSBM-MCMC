@@ -27,15 +27,8 @@ public:
     std::vector<mcmc_state_t> mcmc_state_change_riolo_uni2(std::mt19937 &engine);
     std::vector<mcmc_state_t> mcmc_state_change_riolo(std::mt19937 &engine);
 
-    std::vector<mcmc_state_t> single_vertex_change_heat_bath(std::mt19937 &engine) noexcept;
     std::vector<mcmc_state_t> single_vertex_change_naive(std::mt19937 &engine) noexcept;
     std::vector<mcmc_state_t> single_vertex_change_tiago(std::mt19937 &engine) noexcept;
-
-
-
-    bool change_KA(std::mt19937 &engine) noexcept;
-
-    bool change_KB(std::mt19937 &engine) noexcept;
 
     int_vec_t get_k(unsigned int vertex) const noexcept;
 

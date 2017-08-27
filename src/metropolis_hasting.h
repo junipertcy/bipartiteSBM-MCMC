@@ -24,6 +24,9 @@ protected:
 public:
     // Ctor
     metropolis_hasting() : random_real(0, 1) { ; }
+    double accu_r_ = 0.;  // for Tiago Peixoto's trick
+    double entropy_min_ = 0.;
+    double entropy_max_ = 0.;  // for automatic detection to stop the algorithm after T successive MCMC sweeps occurred
 
     // Virtual methods
     virtual std::vector<mcmc_state_t> sample_proposal_distribution(
@@ -31,6 +34,7 @@ public:
             std::mt19937 &engine
     ) noexcept { return std::vector<mcmc_state_t>(); }  // bogus virtual implementation
 
+    // TODO: check -- why passing moves as a reference doesn't make the program run faster?
     virtual double transition_ratio(
             const blockmodel_t &blockmodel,
             const float_mat_t &p,
@@ -44,10 +48,6 @@ public:
               std::mt19937 &engine) noexcept;
 
     bool step_for_estimate(blockmodel_t &blockmodel,
-                           const float_mat_t &p,
-                           std::mt19937 &engine) noexcept;
-
-    bool step_for_estimate_heat_bath(blockmodel_t &blockmodel,
                            const float_mat_t &p,
                            std::mt19937 &engine) noexcept;
 
@@ -74,11 +74,6 @@ public:
                     unsigned int sampling_frequency,
                     unsigned int num_samples,
                     std::mt19937 &engine) noexcept;
-
-
-    double accu_r_;  // for Tiago Peixoto's trick
-    double entropy_min_;
-    double entropy_max_;  // for automatic detection to stop the algorithm after T successive MCMC sweeps occurred
 };
 
 /* Inherited classes with specific definitions */
@@ -99,16 +94,6 @@ public:
                             const float_mat_t &p,
                             const std::vector<mcmc_state_t> moves) noexcept override;
 };
-
-class mh_heat_bath : public metropolis_hasting {
-public:
-    std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t &blockmodel,
-                                                          std::mt19937 &engine) noexcept override;
-    double transition_ratio(const blockmodel_t &blockmodel,
-                            const float_mat_t &p,
-                            const std::vector<mcmc_state_t> moves) noexcept override;
-};
-
 
 class mh_riolo : public metropolis_hasting {
 public:

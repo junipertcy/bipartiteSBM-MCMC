@@ -4,6 +4,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <math.h>
 #include "types.h"
 
 /* Load beliefs of memberships of each node. Returns true on sucess. */
