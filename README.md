@@ -1,4 +1,4 @@
-# bipartiteSBM-MCMC
+# bipartiteSBM-MCMC [![Build Status](https://travis-ci.org/junipertcy/bipartiteSBM-MCMC.svg?branch=master)](https://travis-ci.org/junipertcy/bipartiteSBM-MCMC)
 
 **bipartiteSBM-MCMC** is a MCMC sampler for the degree-corrected bipartite Stochastic Block Model. Three sampling procedures are provided. In `marginalize` and `anneal` mode, the group memberships of each node are found assuming we know the number of communities, (Ka, Kb), of the system. In `estimate` mode, one samples the posterior distribution directly assuming we do not know the number of groups.
 

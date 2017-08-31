@@ -21,4 +21,4 @@ addons:
 notifications:
   email: false
 script: 
-  - cmake .; make; bin/mcmc_history -e dataset/southernWomen.edgelist0 -n 4 4 4 3 3 3 3 3 3 2 -t 1000 -y 18 14 -z 5 5 --estimate -f 10
+  - cmake .; make; bin/mcmc_history -e dataset/southernWomen.edgelist -n 4 4 4 3 3 3 3 3 3 2 -t 1000 -y 18 14 -z 5 5 --estimate -f 10
