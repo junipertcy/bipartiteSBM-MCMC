@@ -573,9 +573,27 @@ std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt19937 
     std::vector<mcmc_state_t> moves(1);
     int proposal_membership = 0;
 
-    moves[0].vertex = unsigned(random_node_(engine));
+    if (KA_ == 1 && KB_ == 1) {
+        // return trivial move
+        moves[0].vertex = unsigned(random_node_(engine));
+        moves[0].source = memberships_[moves[0].vertex];
+        moves[0].target = moves[0].source;
+        return moves;
+    }
+
+    //TODO: improve this block
+    unsigned int K = 1;
+    while (K == 1) {
+        moves[0].vertex = unsigned(random_node_(engine));
+        if (types_[moves[0].vertex] == 0) {
+            K = KA_;
+        } else if (types_[moves[0].vertex] == 1) {
+            K = KB_;
+        }
+    }
     moves[0].source = memberships_[moves[0].vertex];
     moves[0].target = moves[0].source;
+
 
     while (moves[0].source == moves[0].target) {
 

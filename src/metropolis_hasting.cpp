@@ -34,7 +34,6 @@ bool metropolis_hasting::step(blockmodel_t &blockmodel,
                               std::mt19937 &engine) noexcept {
     std::vector<mcmc_state_t> moves = sample_proposal_distribution(blockmodel, engine);
     double a = std::pow(transition_ratio(blockmodel, p, moves), 1 / temperature) * accu_r_;
-
     if (random_real(engine) < a) {
         blockmodel.apply_mcmc_moves(moves);
         return true;
@@ -112,7 +111,7 @@ double metropolis_hasting::anneal(
 
         if (step(blockmodel, p, cooling_schedule(t, cooling_schedule_kwargs), engine)) {
             ++accepted_steps;
-        };
+        }
         if (entropy_max__ == entropy_max_ && entropy_min__ == entropy_min_) {
             u += 1;
         } else {
@@ -136,6 +135,7 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
                                     std::mt19937 &engine) noexcept {
     unsigned int accepted_steps = 0;
     unsigned int t_1000 = sampling_frequency * num_samples - 1000;
+    //unsigned int t_1000 = 0;
     // Sampling
     for (unsigned int t = 0; t < sampling_frequency * num_samples; ++t) {
         if (t % sampling_frequency == 0) {
