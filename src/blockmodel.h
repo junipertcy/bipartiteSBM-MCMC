@@ -1,10 +1,6 @@
 #ifndef BLOCKMODEL_H
 #define BLOCKMODEL_H
 
-#define GLOBAL_KA 30
-#define GLOBAL_KB 30
-
-
 
 #include <random>
 #include <utility>
@@ -100,6 +96,7 @@ public:
 
     double get_log_posterior_from_mb_bi(uint_vec_t mb) const noexcept;
 
+    double get_log_single_type_prior(uint_vec_t mb, unsigned int type) const noexcept;
 
 private:
     /// State variable
@@ -113,7 +110,6 @@ private:
     adj_list_t *adj_list_ptr_;
     int_mat_t k_;
     int_vec_t n_;
-    int_vec_t bookkeeping_n_;
     int_vec_t deg_;
     uint_vec_t memberships_;
     uint_vec_t types_;

@@ -325,7 +325,15 @@ std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo(std::mt19937 &en
     auto num_nodes_a = (double) nsize_A_;
     auto num_nodes_b = (double) nsize_B_;
 
-    if (random_real(engine) < num_nodes_a / num_nodes) {  // move type-a nodes
+//    double prior_a = get_log_single_type_prior(states[0].memberships, 1);
+//    double prior_b = get_log_single_type_prior(states[0].memberships, 2);
+//    double beta_prob = 1. / (1. + std::exp(prior_a - prior_b));
+//    beta_prob = 0.9;
+    // OLD
+    double beta_prob_old = num_nodes_a / num_nodes;
+//    std::clog << "beta_prob for a: " << beta_prob << "; prior_a: " << prior_a << "; prior_b: " << prior_b << "\n";
+
+    if (random_real(engine) < beta_prob_old) {  // move type-a nodes
         if (random_real(engine) < 1. / (num_nodes_a - 1.)) {  // type-II move for type-a nodes
             auto r = unsigned(int(random_real(engine) * (KA_ + 1)));  // 0 or 1; if r = 1, s = 0
             unsigned int s = r;
@@ -511,11 +519,6 @@ std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo(std::mt19937 &en
         }
 
     }
-
-
-
-
-
     return states;
 }
 
@@ -594,9 +597,7 @@ std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt19937 
     moves[0].source = memberships_[moves[0].vertex];
     moves[0].target = moves[0].source;
 
-
     while (moves[0].source == moves[0].target) {
-
         // Here, instead of naively move to adjacent blocks, we follow Tiago Peixoto's approach (PRE 89, 012804 [2014])
         auto which_to_move = (int) (random_real(engine) * adj_list_[moves[0].vertex].size());
         vertex_j = adj_list_[moves[0].vertex][which_to_move];
@@ -707,6 +708,7 @@ uint_vec_t blockmodel_t::get_m_r_from_m(uint_mat_t m) const noexcept {
 
 
 unsigned int blockmodel_t::get_n_from_mb(uint_vec_t mb) const noexcept {
+    unsigned int cand_n_;
     if (is_bipartite_) {
         unsigned int cand_KA_ = 0;
         unsigned int cand_KB_ = 0;
@@ -721,11 +723,9 @@ unsigned int blockmodel_t::get_n_from_mb(uint_vec_t mb) const noexcept {
                 }
             }
         }
-        unsigned int KA_ = cand_KA_ + 1;
-        unsigned int KB_ = cand_KB_ + 1 - KA_;
-        unsigned int cand_n_ = KA_ + KB_;
-
-        return cand_n_;
+        unsigned int _KA = cand_KA_ + 1;
+        unsigned int _KB = cand_KB_ + 1 - _KA;
+        cand_n_ = _KA + _KB;
     } else {
         unsigned int cand_K_ = 0;
 
@@ -735,10 +735,9 @@ unsigned int blockmodel_t::get_n_from_mb(uint_vec_t mb) const noexcept {
             }
         }
 
-        unsigned int K_ = cand_K_ + 1;
-
-        return K_;
+        cand_n_ = cand_K_ + 1;
     }
+    return cand_n_;
 
 }
 
@@ -1000,7 +999,7 @@ double blockmodel_t::get_log_posterior_from_mb_uni(uint_vec_t mb) const noexcept
                     get_log_factorial(m_rs_[r][s]) - (m_rs_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
         }
     }
-    log_posterior -= K_ * (memberships_.size() - 2.);
+    log_posterior -= K_ * std::log(memberships_.size() - 2.);
 
 
     return log_posterior;
@@ -1024,6 +1023,28 @@ double blockmodel_t::get_log_posterior_from_mb_bi(uint_vec_t mb) const noexcept 
         }
     }
 
-    log_posterior -= KA_ * (nsize_A_ - 2.) + KB_ * (nsize_B_ - 2.);
+    log_posterior -= KA_ * std::log(nsize_A_ - 2.) + KB_ * std::log(nsize_B_ - 2.);
     return log_posterior;
 }
+
+double blockmodel_t::get_log_single_type_prior(uint_vec_t mb, unsigned int type) const noexcept {
+    // This implements the single-type prior, P(g, K)
+    // if type == 1, we output the prior probability for type-a nodes, P(g, K_a)
+    // else if type == 2, we output P(g, K_b);
+    int_vec_t n = get_n_r_from_mb(mb);
+
+    double log_prior_probability = 0.;
+    if (type == 1) {
+        for (auto r = 0; r < KA_; ++r) {
+            log_prior_probability += get_log_factorial(n[r]);
+        }
+        log_prior_probability -= KA_ * std::log(nsize_A_ - 2.);
+
+    } else if (type == 2) {
+        for (auto r = KA_; r < KA_ + KB_; ++r) {
+            log_prior_probability += get_log_factorial(n[r]);
+        }
+        log_prior_probability -= KB_ * std::log(nsize_B_ - 2.);
+    }
+    return log_prior_probability;
+};

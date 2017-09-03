@@ -77,15 +77,6 @@ public:
 };
 
 /* Inherited classes with specific definitions */
-class mh_naive : public metropolis_hasting {
-public:
-    std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept override;
-
-    double transition_ratio(const blockmodel_t &blockmodel,
-                            const float_mat_t &p,
-                            const std::vector<mcmc_state_t> moves) noexcept override;
-};
-
 class mh_tiago : public metropolis_hasting {
 public:
     std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept override;

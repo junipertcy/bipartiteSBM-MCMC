@@ -49,7 +49,6 @@ int main(int argc, char const *argv[]) {
     double epsilon;
 
     bool is_bipartite = true;
-    bool use_mh_naive = false;
     bool use_mh_tiago = false;
 
     po::options_description description("Options");
@@ -59,11 +58,11 @@ int main(int argc, char const *argv[]) {
             ("n,n", po::value<uint_vec_t>(&n)->multitoken(), "Block sizes vector.\n")
             ("types,y", po::value<uint_vec_t>(&y)->multitoken(), "Block types vector. (when -v is on)\n")
             ("burn_in,b", po::value < unsigned int > (&burn_in)->default_value(1000), "Burn-in time.")
-    ("sampling_steps,t", po::value < unsigned int > (&sampling_steps)->default_value(1000),
+            ("sampling_steps,t", po::value < unsigned int > (&sampling_steps)->default_value(1000),
             "Number of sampling steps in marginalize mode. Length of the simulated annealing process.")
-    ("sampling_frequency,f", po::value < unsigned int > (&sampling_frequency)->default_value(10),
+            ("sampling_frequency,f", po::value < unsigned int > (&sampling_frequency)->default_value(10),
             "Number of step between each sample in marginalize mode. Unused in likelihood maximization mode.")
-    ("bisbm_partition,z", po::value<uint_vec_t>(&z)->multitoken(), "BISBM number of blocks to be inferred.")
+            ("bisbm_partition,z", po::value<uint_vec_t>(&z)->multitoken(), "BISBM number of blocks to be inferred.")
             ("maximize,m", "Maximize likelihood instead of marginalizing.")
             ("estimate,l", "Estimate KA and KB during marginalizing.")
             ("uni1", "Experimental use; Estimate K during marginalizing – Riolo's approach.")
@@ -84,14 +83,13 @@ int main(int argc, char const *argv[]) {
              "Constant: T (temperature > 0)")
             ("steps_await,x", po::value<unsigned int>(&steps_await)->default_value(1000),
             "Stop the algorithm after x successive sweeps occurred and both the max/min entropy values did not change.")
-    ("epsilon,E", po::value<double>(&epsilon)->default_value(1.),
+            ("epsilon,E", po::value<double>(&epsilon)->default_value(1.),
             "The parameter epsilon for faster vertex proposal moves (in Tiago Peixoto's prescription).")
             ("randomize,r",
              "Randomize initial block state.")
-            ("seed,d", po::value < unsigned
-    int > (&seed), "Seed of the pseudo random number generator (Mersenne-twister 19937). "\
-            "A random seed is used if seed is not specified.")
-    ("help,h", "Produce this help message.");
+            ("seed,d", po::value < unsigned int > (&seed),
+             "Seed of the pseudo random number generator (Mersenne-twister 19937). A random seed is used if seed is not specified.")
+            ("help,h", "Produce this help message.");
 
     po::variables_map var_map;
     po::store(po::parse_command_line(argc, argv, description), var_map);
@@ -216,8 +214,9 @@ int main(int argc, char const *argv[]) {
         std::clog << "An epsilon param is assigned; we will use Tiago's smart MCMC moves. \n";
         use_mh_tiago = true;
     } else {
-        std::clog << "An epsilon param is NOT assigned; we will use naive MCMC moves. \n";
-        use_mh_naive = true;
+        std::cerr << "[ERROR] An epsilon param is NOT assigned; \n";
+        std::cerr << "to perform MCMC with naive proposals, assign a large value for the epsilon parameter (eq. -E 10000.). \n";
+        return 1;
     }
     if (var_map.count("randomize") > 0) {
         randomize = true;
@@ -291,7 +290,6 @@ int main(int argc, char const *argv[]) {
     // number of blocks
     auto g = unsigned(int(n.size()));
 
-
     uint_vec_t types_init;
     unsigned int KA;
     unsigned int KB;
@@ -339,7 +337,6 @@ int main(int argc, char const *argv[]) {
     edge_list_t edge_list;
     load_edge_list(edge_list, edge_list_path);
     adj_list_t adj_list = edge_to_adj(edge_list, N);
-    num_edges = unsigned(int(edge_list.size()));
     edge_list.clear();
 
     // blockmodel
@@ -368,13 +365,8 @@ int main(int argc, char const *argv[]) {
 
     std::unique_ptr<metropolis_hasting> algorithm;
     if (maximize && !estimate) {
-        if (use_mh_naive) {
-            std::clog << "We use naive jumps to maximize the posterior...\n";
-            algorithm = std::make_unique<mh_naive>();
-        } else {
-            std::clog << "We use smart jumps to maximize the posterior...\n";
-            algorithm = std::make_unique<mh_tiago>();
-        }
+        std::clog << "We use smart jumps to maximize the posterior...\n";
+        algorithm = std::make_unique<mh_tiago>();
     } else if (estimate && !maximize && uni1) {  // Riolo's implementation
         std::clog << "We use Riolo's jumps to sample the posterior...\n";
         algorithm = std::make_unique<mh_riolo_uni1>();
@@ -386,10 +378,7 @@ int main(int argc, char const *argv[]) {
         algorithm = std::make_unique<mh_riolo>();
     } else {
         // marginalize
-        if (use_mh_naive) {
-            std::clog << "We use naive jumps to marginalize the posterior...\n";
-            algorithm = std::make_unique<mh_naive>();
-        } else if (use_mh_tiago) {
+        if (use_mh_tiago) {
             std::clog << "We use smart jumps to marginalize the posterior...\n";
             algorithm = std::make_unique<mh_tiago>();
         }
@@ -400,8 +389,9 @@ int main(int argc, char const *argv[]) {
     std::clog << "probabilities:\n";
     output_mat<float_mat_t>(p, std::clog);
     std::clog << "sizes (g=" << n.size() << "): ";
-    for (auto it = n.begin(); it != n.end(); ++it)
-        std::clog << *it << " ";
+    for (auto it: n) {
+        std::clog << it << " ";
+    }
     std::clog << "\n";
     std::clog << "burn_in: " << burn_in << "\n";
     std::clog << "sampling_steps: " << sampling_steps << "\n";
@@ -412,15 +402,17 @@ int main(int argc, char const *argv[]) {
     else { std::clog << "maximize: false\n"; }
     if (randomize) { std::clog << "randomize: true\n"; }
     else { std::clog << "randomize: false\n"; }
+
     std::clog << "num_vertice_types: (y=" << y.size() << "): ";
-    for (auto it = y.begin(); it != y.end(); ++it)
-        std::clog << *it << " ";
+    for (auto it: y) {
+        std::clog << it << " ";
+    }
     std::clog << "\n";
 
     std::clog << "multipartite_blocks: (z=" << z.size() << "): ";
 
-    for (auto it = z.begin(); it != z.end(); ++it) {
-        std::clog << *it << " ";
+    for (auto it: z) {
+        std::clog << it << " ";
     }
     std::clog << "\n";
 
@@ -456,7 +448,6 @@ int main(int argc, char const *argv[]) {
         algorithm->estimate(blockmodel, marginal, p, burn_in, sampling_frequency, sampling_steps, engine);
     } else  // marginalize
     {
-
         rate = algorithm->marginalize(blockmodel, marginal, p, burn_in, sampling_frequency, sampling_steps, engine);
         uint_vec_t memberships(blockmodel.get_N(), 0);
         for (unsigned int i = 0; i < blockmodel.get_N(); ++i) {
