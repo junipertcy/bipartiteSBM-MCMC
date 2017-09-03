@@ -428,22 +428,23 @@ int main(int argc, char const *argv[]) {
     uint_mat_t marginal(adj_list.size(), uint_vec_t(g, 0));
     if (maximize && !estimate) {
         if (cooling_schedule == "exponential") {
-            algorithm->anneal(blockmodel, p, &exponential_schedule, cooling_schedule_kwargs, sampling_steps,
+            rate = algorithm->anneal(blockmodel, p, &exponential_schedule, cooling_schedule_kwargs, sampling_steps,
                               steps_await, engine);
         }
         if (cooling_schedule == "linear") {
-            algorithm->anneal(blockmodel, p, &linear_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
+            rate = algorithm->anneal(blockmodel, p, &linear_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
                               engine);
         }
         if (cooling_schedule == "logarithmic") {
-            algorithm->anneal(blockmodel, p, &logarithmic_schedule, cooling_schedule_kwargs, sampling_steps,
+            rate = algorithm->anneal(blockmodel, p, &logarithmic_schedule, cooling_schedule_kwargs, sampling_steps,
                               steps_await, engine);
         }
         if (cooling_schedule == "constant") {
-            algorithm->anneal(blockmodel, p, &constant_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
+            rate = algorithm->anneal(blockmodel, p, &constant_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
                               engine);
         }
         output_vec<uint_vec_t>(blockmodel.get_memberships(), std::cout);
+        std::clog << "acceptance ratio " << rate << "\n";
     } else if (estimate && !maximize) {  // estimate
         algorithm->estimate(blockmodel, marginal, p, burn_in, sampling_frequency, sampling_steps, engine);
     } else  // marginalize

@@ -106,22 +106,21 @@ double metropolis_hasting::anneal(
 #if OUTPUT_HISTORY == 1  // compile time output
         output_vec<uint_vec_t>(blockmodel.get_memberships(), std::cout);
 #endif
-        double entropy_max__ = entropy_max_;
-        double entropy_min__ = entropy_min_;
+        double _entropy_max = entropy_max_;
+        double _entropy_min = entropy_min_;
 
         if (step(blockmodel, p, cooling_schedule(t, cooling_schedule_kwargs), engine)) {
             ++accepted_steps;
         }
-        if (entropy_max__ == entropy_max_ && entropy_min__ == entropy_min_) {
+        if (_entropy_max == entropy_max_ && _entropy_min == entropy_min_) {
             u += 1;
         } else {
             u = 0;
         }
         if (u == steps_await) {
             std::clog << "algorithm stops after: " << t << " steps. \n";
-            t = duration;
-            std::clog << "the acceptance rate is: " << double(accepted_steps) / double(t) << "\n";
-//          output_vec<uint_vec_t>(memberships_entropy_min_, std::clog);
+            t = duration;  // TODO: check -- if acceptance rate even meaningful in annealing mode?
+            return double(accepted_steps) / double(t);
         }
     }
 }
