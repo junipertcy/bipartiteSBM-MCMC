@@ -29,11 +29,10 @@ double constant_schedule(unsigned int t, float_vec_t cooling_schedule_kwargs) no
 // metropolis_hasting class
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 bool metropolis_hasting::step(blockmodel_t &blockmodel,
-                              const float_mat_t &p,
                               double temperature,
                               std::mt19937 &engine) noexcept {
     std::vector<mcmc_state_t> moves = sample_proposal_distribution(blockmodel, engine);
-    double a = std::pow(transition_ratio(blockmodel, p, moves), 1 / temperature) * accu_r_;
+    double a = std::pow(transition_ratio(blockmodel, moves), 1 / temperature) * accu_r_;
     if (random_real(engine) < a) {
         blockmodel.apply_mcmc_moves(moves);
         return true;
@@ -43,10 +42,9 @@ bool metropolis_hasting::step(blockmodel_t &blockmodel,
 }
 
 bool metropolis_hasting::step_for_estimate(blockmodel_t &blockmodel,
-                                           const float_mat_t &p,
                                            std::mt19937 &engine) noexcept {
     std::vector<mcmc_state_t> states = sample_proposal_distribution(blockmodel, engine);
-    double a = transition_ratio(blockmodel, p, states);
+    double a = transition_ratio(blockmodel, states);
 
     if (random_real(engine) < a) {
         if (blockmodel.get_is_bipartite()) {
@@ -61,7 +59,6 @@ bool metropolis_hasting::step_for_estimate(blockmodel_t &blockmodel,
 
 double metropolis_hasting::marginalize(blockmodel_t &blockmodel,
                                        uint_mat_t &marginal_distribution,
-                                       const float_mat_t &p,
                                        unsigned int burn_in_time,
                                        unsigned int sampling_frequency,
                                        unsigned int num_samples,
@@ -69,7 +66,7 @@ double metropolis_hasting::marginalize(blockmodel_t &blockmodel,
     unsigned int accepted_steps = 0;
     // Burn-in period
     for (unsigned int t = 0; t < burn_in_time; ++t) {
-        step(blockmodel, p, 1.0, engine);
+        step(blockmodel, 1.0, engine);
     }
     // Sampling
     for (unsigned int t = 0; t < sampling_frequency * num_samples; ++t) {
@@ -83,7 +80,7 @@ double metropolis_hasting::marginalize(blockmodel_t &blockmodel,
                 marginal_distribution[i][memberships[i]] += 1;
             }
         }
-        if (step(blockmodel, p, 1.0, engine)) {
+        if (step(blockmodel, 1.0, engine)) {
             ++accepted_steps;
         }
     }
@@ -92,7 +89,6 @@ double metropolis_hasting::marginalize(blockmodel_t &blockmodel,
 
 double metropolis_hasting::anneal(
         blockmodel_t &blockmodel,
-        const float_mat_t &p,
         double (*cooling_schedule)(unsigned int, float_vec_t),
         float_vec_t cooling_schedule_kwargs,
         unsigned int duration,
@@ -109,7 +105,7 @@ double metropolis_hasting::anneal(
         double _entropy_max = entropy_max_;
         double _entropy_min = entropy_min_;
 
-        if (step(blockmodel, p, cooling_schedule(t, cooling_schedule_kwargs), engine)) {
+        if (step(blockmodel, cooling_schedule(t, cooling_schedule_kwargs), engine)) {
             ++accepted_steps;
         }
         if (_entropy_max == entropy_max_ && _entropy_min == entropy_min_) {
@@ -126,9 +122,6 @@ double metropolis_hasting::anneal(
 }
 
 double metropolis_hasting::estimate(blockmodel_t &blockmodel,
-                                    uint_mat_t &marginal_distribution,
-                                    const float_mat_t &p,
-                                    unsigned int burn_in_time,
                                     unsigned int sampling_frequency,
                                     unsigned int num_samples,
                                     std::mt19937 &engine) noexcept {
@@ -163,8 +156,7 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
 #endif
             }
         }
-        if (step_for_estimate(blockmodel, p, engine)) {
-
+        if (step_for_estimate(blockmodel, engine)) {
             ++accepted_steps;
         }
     }
@@ -183,9 +175,7 @@ std::vector<mcmc_state_t> mh_tiago::sample_proposal_distribution(blockmodel_t &b
 }
 
 double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
-                                  const float_mat_t &p,
                                   const std::vector<mcmc_state_t> moves) noexcept {
-    // NOTE: p is not used
     unsigned int v = moves[0].vertex;
     unsigned int r = moves[0].source;
     unsigned int s = moves[0].target;
@@ -270,7 +260,6 @@ std::vector<mcmc_state_t> mh_riolo_uni2::sample_proposal_distribution(blockmodel
 }
 
 double mh_riolo_uni1::transition_ratio(const blockmodel_t &blockmodel,
-                                  const float_mat_t &p,
                                   const std::vector<mcmc_state_t> states) noexcept {
     double log_idl_0 = blockmodel.get_int_data_likelihood_from_mb_uni(blockmodel.get_memberships());
     double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb_uni(states[0].memberships);
@@ -278,7 +267,6 @@ double mh_riolo_uni1::transition_ratio(const blockmodel_t &blockmodel,
 }
 
 double mh_riolo_uni2::transition_ratio(const blockmodel_t &blockmodel,
-                                    const float_mat_t &p,
                                     const std::vector<mcmc_state_t> states) noexcept {
     double log_idl_0 = blockmodel.get_int_data_likelihood_from_mb_bi(blockmodel.get_memberships());
     double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb_bi(states[0].memberships);
@@ -290,7 +278,6 @@ std::vector<mcmc_state_t> mh_riolo::sample_proposal_distribution(blockmodel_t &b
 }
 
 double mh_riolo::transition_ratio(const blockmodel_t &blockmodel,
-                                  const float_mat_t &p,
                                   const std::vector<mcmc_state_t> states) noexcept {
     double log_idl_0 = blockmodel.get_int_data_likelihood_from_mb_bi(blockmodel.get_memberships());
     double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb_bi(states[0].memberships);

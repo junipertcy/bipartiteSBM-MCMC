@@ -70,8 +70,6 @@ public:
 
     unsigned int get_nsize_A() const noexcept;
 
-
-
     unsigned int get_nsize_B() const noexcept;
 
     unsigned int get_n_from_mb(uint_vec_t mb) const noexcept;
@@ -100,21 +98,21 @@ public:
 
 private:
     /// State variable
-    bool is_bipartite_;
-    unsigned int K_;
-    unsigned int KA_;
+    bool is_bipartite_ = true;
+    unsigned int K_ = 0;
+    unsigned int KA_ = 0;
     unsigned int nsize_A_ = 0;
-    unsigned int KB_;
+    unsigned int KB_ = 0;
     unsigned int nsize_B_ = 0;
-    double epsilon_;
+    double epsilon_ = 0.;
     adj_list_t *adj_list_ptr_;
     int_mat_t k_;
     int_vec_t n_;
     int_vec_t deg_;
     uint_vec_t memberships_;
     uint_vec_t types_;
-    unsigned int num_edges_;
-    double entropy_from_degree_correction_;
+    unsigned int num_edges_ = 0;
+    double entropy_from_degree_correction_ = 0.;
     uint_mat_t adj_list_;
 
     /// Internal distribution. Generator must be passed as a service

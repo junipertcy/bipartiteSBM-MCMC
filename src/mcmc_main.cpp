@@ -347,14 +347,7 @@ int main(int argc, char const *argv[]) {
     if (randomize) {
         blockmodel.shuffle_bisbm(engine, NA, NB);
     }
-    // probabilities
-    float_mat_t p(g, float_vec_t(g, 0));
     uint_mat_t m = blockmodel.get_m();
-    for (unsigned int r = 0; r < g; ++r) {
-        for (unsigned int s = 0; s < g; ++s) {
-            p[r][s] = m[r][s];
-        }
-    }
 
     // Bind proper Metropolis-Hasting algorithm
     // We have three modes: marginalizing, estimating, and annealing
@@ -386,8 +379,8 @@ int main(int argc, char const *argv[]) {
     /* ~~~~~ Logging ~~~~~~~*/
 #if LOGGING == 1
     std::clog << "edge_list_path: " << edge_list_path << "\n";
-    std::clog << "probabilities:\n";
-    output_mat<float_mat_t>(p, std::clog);
+    std::clog << "initial affinity matrix:\n";
+    output_mat<uint_mat_t>(m, std::clog);
     std::clog << "sizes (g=" << n.size() << "): ";
     for (auto it: n) {
         std::clog << it << " ";
@@ -428,28 +421,28 @@ int main(int argc, char const *argv[]) {
     uint_mat_t marginal(adj_list.size(), uint_vec_t(g, 0));
     if (maximize && !estimate) {
         if (cooling_schedule == "exponential") {
-            rate = algorithm->anneal(blockmodel, p, &exponential_schedule, cooling_schedule_kwargs, sampling_steps,
+            rate = algorithm->anneal(blockmodel, &exponential_schedule, cooling_schedule_kwargs, sampling_steps,
                               steps_await, engine);
         }
         if (cooling_schedule == "linear") {
-            rate = algorithm->anneal(blockmodel, p, &linear_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
+            rate = algorithm->anneal(blockmodel, &linear_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
                               engine);
         }
         if (cooling_schedule == "logarithmic") {
-            rate = algorithm->anneal(blockmodel, p, &logarithmic_schedule, cooling_schedule_kwargs, sampling_steps,
+            rate = algorithm->anneal(blockmodel, &logarithmic_schedule, cooling_schedule_kwargs, sampling_steps,
                               steps_await, engine);
         }
         if (cooling_schedule == "constant") {
-            rate = algorithm->anneal(blockmodel, p, &constant_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
+            rate = algorithm->anneal(blockmodel, &constant_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
                               engine);
         }
         output_vec<uint_vec_t>(blockmodel.get_memberships(), std::cout);
         std::clog << "acceptance ratio " << rate << "\n";
     } else if (estimate && !maximize) {  // estimate
-        algorithm->estimate(blockmodel, marginal, p, burn_in, sampling_frequency, sampling_steps, engine);
+        algorithm->estimate(blockmodel, sampling_frequency, sampling_steps, engine);
     } else  // marginalize
     {
-        rate = algorithm->marginalize(blockmodel, marginal, p, burn_in, sampling_frequency, sampling_steps, engine);
+        rate = algorithm->marginalize(blockmodel, marginal, burn_in, sampling_frequency, sampling_steps, engine);
         uint_vec_t memberships(blockmodel.get_N(), 0);
         for (unsigned int i = 0; i < blockmodel.get_N(); ++i) {
             unsigned int max = 0;

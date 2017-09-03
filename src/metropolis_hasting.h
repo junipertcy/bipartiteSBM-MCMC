@@ -37,30 +37,25 @@ public:
     // TODO: check -- why passing moves as a reference doesn't make the program run faster?
     virtual double transition_ratio(
             const blockmodel_t &blockmodel,
-            const float_mat_t &p,
             const std::vector<mcmc_state_t> moves
     ) noexcept { return 0; } // bogus virtual implementation
 
     // Common methods
     bool step(blockmodel_t &blockmodel,
-              const float_mat_t &p,
               double temperature,
               std::mt19937 &engine) noexcept;
 
     bool step_for_estimate(blockmodel_t &blockmodel,
-                           const float_mat_t &p,
                            std::mt19937 &engine) noexcept;
 
     double marginalize(blockmodel_t &blockmodel,
                        uint_mat_t &marginal_distribution,
-                       const float_mat_t &p,
                        unsigned int burn_in_time,
                        unsigned int sampling_frequency,
                        unsigned int num_samples,
                        std::mt19937 &engine) noexcept;
 
     double anneal(blockmodel_t &blockmodel,
-                  const float_mat_t &p,
                   double (*cooling_schedule)(unsigned int, float_vec_t),
                   float_vec_t cooling_schedule_kwargs,
                   unsigned int duration,
@@ -68,9 +63,6 @@ public:
                   std::mt19937 &engine) noexcept;
 
     double estimate(blockmodel_t &blockmodel,
-                    uint_mat_t &marginal_distribution,
-                    const float_mat_t &p,
-                    unsigned int burn_in_time,
                     unsigned int sampling_frequency,
                     unsigned int num_samples,
                     std::mt19937 &engine) noexcept;
@@ -82,7 +74,6 @@ public:
     std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept override;
 
     double transition_ratio(const blockmodel_t &blockmodel,
-                            const float_mat_t &p,
                             const std::vector<mcmc_state_t> moves) noexcept override;
 };
 
@@ -92,7 +83,6 @@ public:
                                                           std::mt19937 &engine) noexcept override;
 
     double transition_ratio(const blockmodel_t &blockmodel,
-                            const float_mat_t &p,
                             const std::vector<mcmc_state_t> moves) noexcept override;
 };
 
@@ -102,7 +92,6 @@ public:
                                                            std::mt19937 &engine) noexcept override;
 
     double transition_ratio(const blockmodel_t &blockmodel,
-                            const float_mat_t &p,
                             const std::vector<mcmc_state_t> moves) noexcept override;
 };
 
@@ -112,7 +101,6 @@ public:
                                                            std::mt19937 &engine) noexcept override;
 
     double transition_ratio(const blockmodel_t &blockmodel,
-                            const float_mat_t &p,
                             const std::vector<mcmc_state_t> moves) noexcept override;
 };
 
