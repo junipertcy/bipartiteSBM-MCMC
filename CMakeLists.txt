@@ -8,7 +8,7 @@ project(sbm_inference)
 # Check for functionalities
 # ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# Check for C++ 11 with CMAKE v.2.8
+# Check for C++ 14 with CMAKE v.2.8
 # Note: there exists a cleaner method in CMAKE 3.1+ [target_compile_features()]
 #       but stable Debian distributions tend to distribute CMAKE 2.8 as the default.
 #

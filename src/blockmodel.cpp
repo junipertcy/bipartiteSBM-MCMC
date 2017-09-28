@@ -38,6 +38,8 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &type
             ++num_edges_;
         }
     }
+
+
     num_edges_ /= 2;
     double deg_factorial = 0;
     for (unsigned int node = 0; node < memberships.size(); ++node) {
@@ -49,6 +51,8 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &type
         entropy_from_degree_correction_ += deg_factorial;
     }
     compute_k();
+    compute_m();
+    compute_m_r();
     // Note that Tiago's MCMC proposal jumps has to randomly access elements in an adjacency list
     // Here, we define an vectorized data structure to make such data access O(1) [else it'll be O(n)].
 
@@ -566,7 +570,6 @@ std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_naive(std::mt19937 
 }
 
 std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt19937 &engine) noexcept {
-
     double epsilon = epsilon_;
     double R_t = 0.;
     unsigned int vertex_j;
@@ -612,16 +615,8 @@ std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt19937 
         if (random_real(engine) < R_t) {
             moves[0].target = unsigned(proposal_membership);
         } else {
-            // TODO: May exist a better way of writing...
-            which_to_move = (int) (random_real(engine) * m_r[proposal_t]);
-            unsigned int counter = 0;
-            for (auto s = 0; s < m_r.size(); ++s) {
-                counter += m[proposal_t][s];
-                if (counter > which_to_move) {
-                    moves[0].target = unsigned(s);
-                    break;
-                }
-            }
+            std::discrete_distribution<> d(m[proposal_t].begin(), m[proposal_t].end());
+            moves[0].target = unsigned(d(gen));
         }
     }
     return moves;
@@ -641,19 +636,7 @@ uint_vec_t blockmodel_t::get_types() const noexcept { return types_; }
 double blockmodel_t::get_epsilon() const noexcept { return epsilon_; }
 
 uint_mat_t blockmodel_t::get_m() const noexcept {
-    uint_mat_t m(get_g(), uint_vec_t(get_g(), 0));
-    for (unsigned int vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
-        for (auto nb = adj_list_ptr_->at(vertex).begin(); nb != adj_list_ptr_->at(vertex).end(); ++nb) {
-            ++m[memberships_[vertex]][memberships_[*nb]];
-        }
-    }
-    for (unsigned int r = 0; r < get_g(); ++r) {
-        for (unsigned int s = 0; s < get_g(); ++s) {
-            m[r][s] /= 2;  // edges are counted twice (the adj_list is symmetric)
-            m[r][s] = m[s][r];  // symmetrize m matrix.
-        }
-    }
-    return m;
+    return m_;
 }
 
 // TODO: move it to the template?
@@ -680,17 +663,8 @@ uint_mat_t blockmodel_t::get_m_from_membership(uint_vec_t mb) const noexcept {
 }
 
 uint_vec_t blockmodel_t::get_m_r() const noexcept {
-    uint_mat_t m = get_m();
-    uint_vec_t m_r(get_g(), 0);
-    unsigned int m_r_ = 0;
-    for (unsigned int r = 0; r < get_g(); ++r) {
-        m_r_ = 0;
-        for (unsigned int s = 0; s < get_g(); ++s) {
-            m_r_ += m[r][s];
-        }
-        m_r[r] = m_r_;
-    }
-    return m_r;
+    return m_r_;
+
 }
 
 uint_vec_t blockmodel_t::get_m_r_from_m(uint_mat_t m) const noexcept {
@@ -728,17 +702,14 @@ unsigned int blockmodel_t::get_n_from_mb(uint_vec_t mb) const noexcept {
         cand_n_ = _KA + _KB;
     } else {
         unsigned int cand_K_ = 0;
-
         for (auto _mb: mb) {
             if (_mb > cand_K_) {
                 cand_K_ = _mb;
             }
         }
-
         cand_n_ = cand_K_ + 1;
     }
     return cand_n_;
-
 }
 
 int_vec_t blockmodel_t::get_n_r_from_mb(uint_vec_t mb) const noexcept {
@@ -776,14 +747,26 @@ unsigned int blockmodel_t::get_KB() const noexcept { return KB_; }
 unsigned int blockmodel_t::get_nsize_B() const noexcept { return nsize_B_; }
 
 void blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t> moves) noexcept {
-    for (unsigned int i = 0; i < moves.size(); ++i) {
+    for (auto mv: moves) {
+        int_vec_t ki = get_k(mv.vertex);
+        for (unsigned int i = 0; i < ki.size(); ++i) {
+            if (ki[i] != 0) {
+                m_[mv.source][i] -= ki[i];
+                m_[mv.target][i] += ki[i];
+                m_[i][mv.source] = m_[mv.source][i];
+                m_[i][mv.target] = m_[mv.target][i];
+            }
+        }
+
+        m_r_[mv.source] -= deg_[mv.vertex];
+        m_r_[mv.target] += deg_[mv.vertex];
 
         // Change block degrees and block sizes
-        for (auto neighbour = adj_list_ptr_->at(moves[i].vertex).begin();
-             neighbour != adj_list_ptr_->at(moves[i].vertex).end();
+        for (auto neighbour = adj_list_ptr_->at(mv.vertex).begin();
+             neighbour != adj_list_ptr_->at(mv.vertex).end();
              ++neighbour) {
-            --k_[*neighbour][moves[i].source];
-            ++k_[*neighbour][moves[i].target];
+            --k_[*neighbour][mv.source];
+            ++k_[*neighbour][mv.target];
         }
 
         if (n_.size() != KA_ + KB_) {
@@ -792,11 +775,11 @@ void blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t> moves) noexcept {
 
         }
 
-        --n_[moves[i].source];
-        ++n_[moves[i].target];
+        --n_[mv.source];
+        ++n_[mv.target];
 
         // Set new memberships
-        memberships_[moves[i].vertex] = moves[i].target;
+        memberships_[mv.vertex] = mv.target;
     }
 }
 
@@ -817,6 +800,7 @@ void blockmodel_t::apply_mcmc_states_u(std::vector<mcmc_state_t> states) noexcep
         }
         K_ = max_K_ + 1;
         n_.resize(K_, 0);
+
         for (unsigned int j = 0; j < n_.size(); ++j) {
             n_[j] = 0;
         }
@@ -902,10 +886,13 @@ void blockmodel_t::shuffle_bisbm(std::mt19937 &engine, unsigned int NA, unsigned
     std::shuffle(&memberships_[0], &memberships_[NA], engine);
     std::shuffle(&memberships_[NA], &memberships_[NA + NB], engine);
     compute_k();
+    compute_m();
+    compute_m_r();
 }
 
 
 void blockmodel_t::compute_k() noexcept {
+    // In principle, this function only executes once.
     k_.clear();
     k_.resize(adj_list_ptr_->size());
     for (unsigned int i = 0; i < adj_list_ptr_->size(); ++i) {
@@ -915,6 +902,43 @@ void blockmodel_t::compute_k() noexcept {
         }
     }
 }
+
+void blockmodel_t::compute_m() noexcept {
+    // In principle, this function only executes once.
+    m_.clear();
+    m_.resize(get_g());
+
+    for (auto i = 0; i < get_g(); ++i) {
+        m_[i].resize(get_g(), 0);
+    }
+
+    for (unsigned int vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
+        for (auto nb = adj_list_ptr_->at(vertex).begin(); nb != adj_list_ptr_->at(vertex).end(); ++nb) {
+            ++m_[memberships_[vertex]][memberships_[*nb]];
+        }
+    }
+    for (unsigned int r = 0; r < get_g(); ++r) {
+        for (unsigned int s = 0; s < get_g(); ++s) {
+            m_[r][s] /= 2;  // edges are counted twice (the adj_list is symmetric)
+            m_[r][s] = m_[s][r];  // symmetrize m matrix.
+        }
+    }
+}
+
+void blockmodel_t::compute_m_r() noexcept {
+    m_r_.clear();
+    m_r_.resize(get_g(), 0);
+
+    unsigned int _m_r = 0;
+    for (unsigned int r = 0; r < get_g(); ++r) {
+        _m_r = 0;
+        for (unsigned int s = 0; s < get_g(); ++s) {
+            _m_r += m_[r][s];
+        }
+        m_r_[r] = _m_r;
+    }
+}
+
 
 int_vec_t blockmodel_t::get_k_r_from_mb(uint_vec_t mb) const noexcept {
     int_vec_t k_r_;

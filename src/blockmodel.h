@@ -11,6 +11,8 @@
 class blockmodel_t {
 protected:
     std::uniform_real_distribution<> random_real;
+    std::random_device rd;
+    std::mt19937 gen{rd()};
 
 public:
     // Ctor
@@ -114,6 +116,8 @@ private:
     unsigned int num_edges_ = 0;
     double entropy_from_degree_correction_ = 0.;
     uint_mat_t adj_list_;
+    uint_mat_t m_;
+    uint_vec_t m_r_;
 
     /// Internal distribution. Generator must be passed as a service
     std::uniform_int_distribution<> random_block_;
@@ -121,6 +125,9 @@ private:
     /// Private methods
     /* Compute the degree matrix from scratch. */
     void compute_k() noexcept;
+    void compute_m() noexcept;  // Note: get_m and compute_m are different.
+    void compute_m_r() noexcept;
+
 };
 
 #endif // BLOCKMODEL_H
