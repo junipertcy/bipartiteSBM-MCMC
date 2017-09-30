@@ -12,7 +12,6 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &type
     K_ = KA + KB;
     KA_ = KA;
     KB_ = KB;
-
     epsilon_ = epsilon;
     memberships_ = memberships;
     types_ = types;
@@ -421,72 +420,66 @@ double blockmodel_t::get_epsilon() const noexcept { return epsilon_; }
 
 uint_mat_t blockmodel_t::get_m() const noexcept { return m_; }
 
-// TODO: move it to the template?
-uint_mat_t blockmodel_t::compute_m_from_mb(uint_vec_t mb) const noexcept {
-    // Note that in Riolo's setting, we have to compare two jump choices of different sizes;
-    // For the newly proposed system with matrix m, we have to calculate its size every time here;
-    unsigned int cand_n_ = get_n_from_mb(mb);
-
-    uint_mat_t m(cand_n_, uint_vec_t(cand_n_, 0));
-
-    for (unsigned int vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
-        for (auto nb = adj_list_ptr_->at(vertex).begin(); nb != adj_list_ptr_->at(vertex).end(); ++nb) {
-            ++m[mb[vertex]][mb[*nb]];
-        }
-    }
-    for (unsigned int r = 0; r < cand_n_; ++r) {
-        for (unsigned int s = 0; s < cand_n_; ++s) {
-            m[r][s] /= 2;  // edges are counted twice (the adj_list is symmetric)
-            m[r][s] = m[s][r];  // symmetrize m matrix.
-        }
-    }
-    return m;
-}
-
 uint_vec_t blockmodel_t::get_m_r() const noexcept { return m_r_; }
 
-unsigned int blockmodel_t::get_n_from_mb(uint_vec_t mb) const noexcept {
-    unsigned int cand_n_;
-    if (is_bipartite_) {
-        unsigned int cand_KA_ = 0;
-        unsigned int cand_KB_ = 0;
-        for (auto i = 0; i < mb.size(); ++i) {
-            if (types_[i] == 0) {
-                if (mb[i] > cand_KA_) {
-                    cand_KA_ = mb[i];
-                }
-            } else {
-                if (mb[i] > cand_KB_) {
-                    cand_KB_ = mb[i];
-                }
-            }
-        }
-        unsigned int _KA = cand_KA_ + 1;
-        unsigned int _KB = cand_KB_ + 1 - _KA;
-        cand_n_ = _KA + _KB;
-    } else {
-        unsigned int cand_K_ = 0;
-        for (auto const &_mb: mb) {
-            if (_mb > cand_K_) {
-                cand_K_ = _mb;
-            }
-        }
-        cand_n_ = cand_K_ + 1;
+unsigned int blockmodel_t::compute_total_num_groups_from_mb(uint_vec_t mb) const noexcept {
+    unsigned int cand_K_ = 0;
+    for (auto const &_mb: mb) {
+        if (_mb > cand_K_) cand_K_ = _mb;
     }
-    return cand_n_;
+    unsigned int cand_n = cand_K_ + 1;
+    return cand_n;
 }
 
-int_vec_t blockmodel_t::compute_n_r_from_mb(uint_vec_t mb) const noexcept {
-    unsigned int cand_n_ = get_n_from_mb(mb);
+// TODO: move it to the template?
+void blockmodel_t::compute_m_from_mb(uint_vec_t &mb, bool proposal) noexcept {
+    // Note that in Riolo's setting, we have to compare two jump choices of different sizes;
+    // For the newly proposed system with matrix m, we have to calculate its size every time here;
+    unsigned int max_n = compute_total_num_groups_from_mb(mb);
 
-    int_vec_t n_r_;
-    n_r_.clear();
-    n_r_.resize(cand_n_, 0);
-
-    for (auto const &_mb: mb) {
-        ++n_r_[_mb];
+    if (proposal) {
+        cand_m_.assign(max_n, uint_vec_t(max_n, 0));
+        for (unsigned int vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
+            for (auto nb = adj_list_ptr_->at(vertex).begin(); nb != adj_list_ptr_->at(vertex).end(); ++nb) {
+                ++cand_m_[mb[vertex]][mb[*nb]];
+            }
+        }
+        for (unsigned int r = 0; r < max_n; ++r) {
+            for (unsigned int s = 0; s < max_n; ++s) {
+                cand_m_[r][s] /= 2;  // edges are counted twice (the adj_list is symmetric)
+                cand_m_[r][s] = cand_m_[s][r];  // symmetrize m matrix.
+            }
+        }
+    } else {
+        m_.assign(max_n, uint_vec_t(max_n, 0));
+        for (unsigned int vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
+            for (auto nb = adj_list_ptr_->at(vertex).begin(); nb != adj_list_ptr_->at(vertex).end(); ++nb) {
+                ++m_[mb[vertex]][mb[*nb]];
+            }
+        }
+        for (unsigned int r = 0; r < max_n; ++r) {
+            for (unsigned int s = 0; s < max_n; ++s) {
+                m_[r][s] /= 2;  // edges are counted twice (the adj_list is symmetric)
+                m_[r][s] = m_[s][r];  // symmetrize m matrix.
+            }
+        }
     }
-    return n_r_;
+}
+
+void blockmodel_t::compute_n_r_from_mb(uint_vec_t &mb, bool proposal) noexcept {
+    // if proposal == true, modify cand_*_ contents; otherwise, modify *_ contents.
+    unsigned int max_n = compute_total_num_groups_from_mb(mb);
+    if (proposal) {
+        cand_n_r_.assign(max_n, 0);
+        for (auto const &_mb: mb) {
+            ++cand_n_r_[_mb];
+        }
+    } else {
+        n_r_.assign(max_n, 0);
+        for (auto const &_mb: mb) {
+            ++n_r_[_mb];
+        }
+    }
 }
 
 bool blockmodel_t::get_is_bipartite() const noexcept { return is_bipartite_; }
@@ -617,6 +610,7 @@ void blockmodel_t::compute_m() noexcept {
             m_[r][s] = m_[s][r];  // symmetrize m matrix.
         }
     }
+
 }
 
 void blockmodel_t::compute_m_r() noexcept {
@@ -632,15 +626,19 @@ void blockmodel_t::compute_m_r() noexcept {
     }
 }
 
-int_vec_t blockmodel_t::compute_k_r_from_mb(uint_vec_t mb) const noexcept {
-    int_vec_t k_r_;
-    k_r_.resize(mb.size(), 0);
-    int_vec_t n_r_ = compute_n_r_from_mb(mb);
-
-    for (auto i = 0; i < mb.size(); ++i) {
-        k_r_[mb[i]] += deg_[i];
+void blockmodel_t::compute_k_r_from_mb(uint_vec_t &mb, bool proposal) noexcept {
+    unsigned int max_n = compute_total_num_groups_from_mb(mb);
+    if (proposal) {
+        cand_k_r_.assign(max_n, 0);
+        for (auto i = 0; i < mb.size(); ++i) {
+            cand_k_r_[mb[i]] += deg_[i];
+        }
+    } else {
+        k_r_.assign(max_n, 0);
+        for (auto i = 0; i < mb.size(); ++i) {
+            k_r_[mb[i]] += deg_[i];
+        }
     }
-    return k_r_;
 }
 
 double blockmodel_t::get_log_factorial(int number) const noexcept {
@@ -648,70 +646,98 @@ double blockmodel_t::get_log_factorial(int number) const noexcept {
     return log_factorial;
 }
 
-double blockmodel_t::get_int_data_likelihood_from_mb_uni(uint_vec_t mb) const noexcept {
-    uint_mat_t m_rs_ = compute_m_from_mb(mb);
-    int_vec_t n_r_ = compute_n_r_from_mb(mb);
-    int_vec_t k_r_ = compute_k_r_from_mb(mb);
+double blockmodel_t::get_int_data_likelihood_from_mb_uni(uint_vec_t mb, bool proposal) noexcept {
+    compute_m_from_mb(mb, proposal);
+    compute_n_r_from_mb(mb, proposal);
+    compute_k_r_from_mb(mb, proposal);
+
     double p_ = 2. * num_edges_ / (double) mb.size() / (double) mb.size();
     double log_idl = 0.;
-    for (auto r = 0; r < n_r_.size(); ++r) {
-        log_idl +=
-                k_r_[r] * std::log(n_r_[r]) + get_log_factorial(n_r_[r] - 1) - get_log_factorial(n_r_[r] + k_r_[r] - 1);
-        log_idl += get_log_factorial(m_rs_[r][r]) - (m_rs_[r][r] + 1.) * std::log(0.5 * p_ * n_r_[r] * n_r_[r] + 1);
-        for (auto s = 0; s < r; ++s) {
-            log_idl += get_log_factorial(m_rs_[r][s]) - (m_rs_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
+
+    if (proposal) {  // TODO: use pointers!
+        for (auto r = 0; r < cand_n_r_.size(); ++r) {
+            log_idl +=
+                    cand_k_r_[r] * std::log(cand_n_r_[r]) + get_log_factorial(cand_n_r_[r] - 1) - get_log_factorial(cand_n_r_[r] + cand_k_r_[r] - 1);
+            log_idl += get_log_factorial(cand_m_[r][r]) - (cand_m_[r][r] + 1.) * std::log(0.5 * p_ * cand_n_r_[r] * cand_n_r_[r] + 1);
+            for (auto s = 0; s < r; ++s) {
+                log_idl += get_log_factorial(cand_m_[r][s]) - (cand_m_[r][s] + 1.) * std::log(p_ * cand_n_r_[r] * cand_n_r_[s] + 1);
+            }
+        }
+    } else {
+        for (auto r = 0; r < n_r_.size(); ++r) {
+            log_idl +=
+                    k_r_[r] * std::log(n_r_[r]) + get_log_factorial(n_r_[r] - 1) - get_log_factorial(n_r_[r] + k_r_[r] - 1);
+            log_idl += get_log_factorial(m_[r][r]) - (m_[r][r] + 1.) * std::log(0.5 * p_ * n_r_[r] * n_r_[r] + 1);
+            for (auto s = 0; s < r; ++s) {
+                log_idl += get_log_factorial(m_[r][s]) - (m_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
+            }
         }
     }
     return log_idl;
 }
 
-double blockmodel_t::get_int_data_likelihood_from_mb_bi(uint_vec_t mb) const noexcept {
-    uint_mat_t m_rs_ = compute_m_from_mb(mb);
-    int_vec_t n_r_ = compute_n_r_from_mb(mb);
-    int_vec_t k_r_ = compute_k_r_from_mb(mb);
+double blockmodel_t::get_int_data_likelihood_from_mb_bi(uint_vec_t mb, bool proposal) noexcept {
+    compute_m_from_mb(mb, proposal);
+    compute_n_r_from_mb(mb, proposal);
+    compute_k_r_from_mb(mb, proposal);
+
     double p_ = 1. * num_edges_ / (double) get_nsize_A() / (double) get_nsize_B();
     double log_idl = 0.;
-    for (auto r = 0; r < n_r_.size(); ++r) {
-        log_idl +=
-                k_r_[r] * std::log(n_r_[r]) + get_log_factorial(n_r_[r] - 1) -
-                get_log_factorial(n_r_[r] + k_r_[r] - 1);
-        //log_idl += get_log_factorial(m_rs_[r][r]) - (m_rs_[r][r] + 1.) * std::log(0.5 * p_ * n_r_[r] * n_r_[r] + 1);
-        for (auto s = 0; s < r; ++s) {
-            log_idl += get_log_factorial(m_rs_[r][s]) - (m_rs_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
+
+    if (proposal) {  // TODO: use pointers!
+        for (auto r = 0; r < cand_n_r_.size(); ++r) {
+            log_idl +=
+                    cand_k_r_[r] * std::log(cand_n_r_[r]) + get_log_factorial(cand_n_r_[r] - 1) -
+                    get_log_factorial(cand_n_r_[r] + cand_k_r_[r] - 1);
+            for (auto s = 0; s < r; ++s) {
+                log_idl += get_log_factorial(cand_m_[r][s]) - (cand_m_[r][s] + 1.) * std::log(p_ * cand_n_r_[r] * cand_n_r_[s] + 1);
+            }
+        }
+    } else {
+        for (auto r = 0; r < n_r_.size(); ++r) {
+            log_idl +=
+                    k_r_[r] * std::log(n_r_[r]) + get_log_factorial(n_r_[r] - 1) -
+                    get_log_factorial(n_r_[r] + k_r_[r] - 1);
+            for (auto s = 0; s < r; ++s) {
+                log_idl += get_log_factorial(m_[r][s]) - (m_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
+            }
         }
     }
     return log_idl;
 }
 
+double blockmodel_t::get_log_posterior_from_mb_uni(uint_vec_t mb) noexcept {
+    compute_m_from_mb(mb, false);
+    compute_n_r_from_mb(mb, false);
+    compute_k_r_from_mb(mb, false);
 
-double blockmodel_t::get_log_posterior_from_mb_uni(uint_vec_t mb) const noexcept {
-    uint_mat_t m_rs_ = compute_m_from_mb(mb);
-    int_vec_t n_r_ = compute_n_r_from_mb(mb);
-    int_vec_t k_r_ = compute_k_r_from_mb(mb);
     double p_ = 2. * num_edges_ / (double) mb.size() / (double) mb.size();
     double log_posterior = 0.;
+
     for (auto r = 0; r < n_r_.size(); ++r) {
         log_posterior += get_log_factorial(n_r_[r]);
         log_posterior +=
                 k_r_[r] * std::log(n_r_[r]) + get_log_factorial(n_r_[r] - 1) -
                 get_log_factorial(n_r_[r] + k_r_[r] - 1);
         log_posterior +=
-                get_log_factorial(m_rs_[r][r]) - (m_rs_[r][r] + 1.) * std::log(0.5 * p_ * n_r_[r] * n_r_[r] + 1);
+                get_log_factorial(m_[r][r]) - (m_[r][r] + 1.) * std::log(0.5 * p_ * n_r_[r] * n_r_[r] + 1);
         for (auto s = 0; s < r; ++s) {
             log_posterior +=
-                    get_log_factorial(m_rs_[r][s]) - (m_rs_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
+                    get_log_factorial(m_[r][s]) - (m_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
         }
     }
     log_posterior -= K_ * std::log(memberships_.size() - 2.);
     return log_posterior;
 }
 
-double blockmodel_t::compute_log_posterior_from_mb_bi(uint_vec_t mb) const noexcept {
-    uint_mat_t m_rs_ = compute_m_from_mb(mb);
-    int_vec_t n_r_ = compute_n_r_from_mb(mb);
-    int_vec_t k_r_ = compute_k_r_from_mb(mb);
+double blockmodel_t::compute_log_posterior_from_mb_bi(uint_vec_t mb) noexcept {
+    compute_m_from_mb(mb, false);
+    compute_n_r_from_mb(mb, false);
+    compute_k_r_from_mb(mb, false);
+
     double p_ = 1. * num_edges_ / (double) get_nsize_A() / (double) get_nsize_B();
     double log_posterior = 0.;
+
     for (auto r = 0; r < n_r_.size(); ++r) {
         log_posterior += get_log_factorial(n_r_[r]);
         log_posterior +=
@@ -719,11 +745,18 @@ double blockmodel_t::compute_log_posterior_from_mb_bi(uint_vec_t mb) const noexc
                 get_log_factorial(n_r_[r] + k_r_[r] - 1);
         for (auto s = 0; s < r; ++s) {
             log_posterior +=
-                    get_log_factorial(m_rs_[r][s]) - (m_rs_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
+                    get_log_factorial(m_[r][s]) - (m_[r][s] + 1.) * std::log(p_ * n_r_[r] * n_r_[s] + 1);
         }
     }
     log_posterior -= KA_ * std::log(nsize_A_ - 2.) + KB_ * std::log(nsize_B_ - 2.);
     return log_posterior;
+}
+
+void blockmodel_t::sync_internal_states_est() noexcept {
+    // TODO: (check) is it any faster if clear() is called?
+    m_ = cand_m_;
+    n_r_ = cand_n_r_;
+    k_r_ = cand_k_r_;
 }
 
 uint_vec_t blockmodel_t::get_types() const noexcept { return types_; }
@@ -732,47 +765,31 @@ unsigned int blockmodel_t::get_num_edges() const noexcept { return num_edges_; }
 
 double blockmodel_t::get_entropy_from_degree_correction() const noexcept { return entropy_from_degree_correction_; }
 
-double blockmodel_t::get_log_single_type_prior(uint_vec_t mb, unsigned int type) const noexcept {
+double blockmodel_t::get_log_single_type_prior(uint_vec_t mb, unsigned int type) noexcept {
     // This implements the single-type prior, P(g, K)
     // if type == 1, we output the prior probability for type-a nodes, P(g, K_a)
     // else if type == 2, we output P(g, K_b);
-    int_vec_t n = compute_n_r_from_mb(mb);
+    compute_n_r_from_mb(mb, false);
     double log_prior_probability = 0.;
     if (type == 1) {
         for (auto r = 0; r < KA_; ++r) {
-            log_prior_probability += get_log_factorial(n[r]);
+            log_prior_probability += get_log_factorial(n_r_[r]);
         }
         log_prior_probability -= KA_ * std::log(nsize_A_ - 2.);
 
     } else if (type == 2) {
         for (auto r = KA_; r < KA_ + KB_; ++r) {
-            log_prior_probability += get_log_factorial(n[r]);
+            log_prior_probability += get_log_factorial(n_r_[r]);
         }
         log_prior_probability -= KB_ * std::log(nsize_B_ - 2.);
     }
     return log_prior_probability;
 }
 
-uint_vec_t blockmodel_t::compute_m_r_from_m(uint_mat_t m) const noexcept {
-    uint_vec_t m_r(m.size(), 0);
-    unsigned int m_r_ = 0;
-    for (unsigned int r = 0; r < m.size(); ++r) {
-        m_r_ = 0;
-        for (unsigned int s = 0; s < m.size(); ++s) {
-            m_r_ += m[r][s];
-        }
-        m_r[r] = m_r_;
-    }
-    return m_r;
-}
-
 double blockmodel_t::compute_entropy_from_m_mr(uint_mat_t m, uint_vec_t m_r) const noexcept {
-    int_vec_t n = get_size_vector();
-
     double entropy = -(double) num_edges_ - entropy_from_degree_correction_;
-
-    for (unsigned r_ = 0; r_ < n.size(); ++r_) {
-        for (unsigned s_ = 0; s_ < n.size(); ++s_) {
+    for (unsigned r_ = 0; r_ < n_.size(); ++r_) {
+        for (unsigned s_ = 0; s_ < n_.size(); ++s_) {
             if (m_r[r_] * m_r[s_] * m[r_][s_] != 0) {
                 entropy -= 1. / 2. * (double) m[r_][s_] *
                            std::log((double) m[r_][s_] / (double) m_r[r_] / (double) m_r[s_]);

@@ -59,8 +59,6 @@ public:
 
     unsigned int get_nsize_B() const noexcept;
 
-    unsigned int get_n_from_mb(uint_vec_t mb) const noexcept;
-
     void apply_mcmc_moves(std::vector<mcmc_state_t> moves) noexcept;
 
     void apply_mcmc_states_u(std::vector<mcmc_state_t> states) noexcept;  // for uni-partite SBM
@@ -69,23 +67,25 @@ public:
 
     void shuffle_bisbm(std::mt19937 &engine, unsigned int NA, unsigned int NB) noexcept;
 
-    double get_int_data_likelihood_from_mb_uni(uint_vec_t mb) const noexcept;
+    double get_int_data_likelihood_from_mb_uni(uint_vec_t mb, bool proposal) noexcept;
 
-    double get_int_data_likelihood_from_mb_bi(uint_vec_t mb) const noexcept;
+    double get_int_data_likelihood_from_mb_bi(uint_vec_t mb, bool proposal) noexcept;
 
-    double get_log_posterior_from_mb_uni(uint_vec_t mb) const noexcept;
+    double get_log_posterior_from_mb_uni(uint_vec_t mb) noexcept;
 
-    double compute_log_posterior_from_mb_bi(uint_vec_t mb) const noexcept;
+    double compute_log_posterior_from_mb_bi(uint_vec_t mb) noexcept;
 
     uint_vec_t get_types() const noexcept;
 
-    double get_log_single_type_prior(uint_vec_t mb, unsigned int type) const noexcept;
+    double get_log_single_type_prior(uint_vec_t mb, unsigned int type) noexcept;
 
     double compute_entropy_from_m_mr(uint_mat_t m, uint_vec_t m_r) const noexcept;
 
     unsigned int get_num_edges() const noexcept;
 
     double get_entropy_from_degree_correction() const noexcept;
+
+    void sync_internal_states_est() noexcept;
 
 private:
     /// State variable
@@ -99,6 +99,7 @@ private:
     adj_list_t *adj_list_ptr_;
     int_mat_t k_;
     int_vec_t n_;
+
     int_vec_t deg_;
     uint_vec_t memberships_;
     uint_vec_t types_;
@@ -107,6 +108,13 @@ private:
     uint_mat_t adj_list_;
     uint_mat_t m_;
     uint_vec_t m_r_;
+
+    /// used for `estimate` mode
+    uint_mat_t cand_m_;
+    int_vec_t n_r_;
+    int_vec_t cand_n_r_;
+    int_vec_t k_r_;
+    int_vec_t cand_k_r_;
 
     /// Internal distribution. Generator must be passed as a service
     std::uniform_int_distribution<> random_block_;
@@ -118,10 +126,11 @@ private:
     void compute_m() noexcept;  // Note: get_m and compute_m are different.
     void compute_m_r() noexcept;
 
-    uint_mat_t compute_m_from_mb(uint_vec_t mb) const noexcept;
-    int_vec_t compute_n_r_from_mb(uint_vec_t mb) const noexcept;
-    int_vec_t compute_k_r_from_mb(uint_vec_t mb) const noexcept;
-    uint_vec_t compute_m_r_from_m(uint_mat_t m) const noexcept;
+    /* Compute stuff from scratch; used for `estimate` mode */
+    unsigned int compute_total_num_groups_from_mb(uint_vec_t mb) const noexcept;
+    void compute_m_from_mb(uint_vec_t &mb, bool proposal) noexcept;
+    void compute_n_r_from_mb(uint_vec_t &mb, bool proposal) noexcept;
+    void compute_k_r_from_mb(uint_vec_t &mb, bool proposal) noexcept;
 
 };
 
