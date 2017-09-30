@@ -40,12 +40,10 @@ int main(int argc, char const *argv[]) {
     bool randomize = false;
     bool maximize = false;
     bool estimate = false;
-    bool uni1 = false;  // used for experimental comparison
-    bool uni2 = false;  // used for experimental comparison
+    bool uni = false;  // used for experimental comparison
     std::string cooling_schedule;
     float_vec_t cooling_schedule_kwargs(2, 0);
     unsigned int seed = 0;
-    unsigned int num_edges = 0;
     double epsilon;
 
     bool is_bipartite = true;
@@ -57,17 +55,15 @@ int main(int argc, char const *argv[]) {
             ("membership_path", po::value<std::string>(&membership_path), "Path to membership file.")
             ("n,n", po::value<uint_vec_t>(&n)->multitoken(), "Block sizes vector.\n")
             ("types,y", po::value<uint_vec_t>(&y)->multitoken(), "Block types vector. (when -v is on)\n")
-            ("burn_in,b", po::value < unsigned int > (&burn_in)->default_value(1000), "Burn-in time.")
-            ("sampling_steps,t", po::value < unsigned int > (&sampling_steps)->default_value(1000),
-            "Number of sampling steps in marginalize mode. Length of the simulated annealing process.")
-            ("sampling_frequency,f", po::value < unsigned int > (&sampling_frequency)->default_value(10),
-            "Number of step between each sample in marginalize mode. Unused in likelihood maximization mode.")
+            ("burn_in,b", po::value<unsigned int>(&burn_in)->default_value(1000), "Burn-in time.")
+            ("sampling_steps,t", po::value<unsigned int>(&sampling_steps)->default_value(1000),
+             "Number of sampling steps in marginalize mode. Length of the simulated annealing process.")
+            ("sampling_frequency,f", po::value<unsigned int>(&sampling_frequency)->default_value(10),
+             "Number of step between each sample in marginalize mode. Unused in likelihood maximization mode.")
             ("bisbm_partition,z", po::value<uint_vec_t>(&z)->multitoken(), "BISBM number of blocks to be inferred.")
             ("maximize,m", "Maximize likelihood instead of marginalizing.")
             ("estimate,l", "Estimate KA and KB during marginalizing.")
-            ("uni1", "Experimental use; Estimate K during marginalizing – Riolo's approach.")
-            ("uni2",
-             "Experimental use; Estimate KA + KB during marginalizing – Riolo's approach, but jumps that violate the bipartite structure are simply rejected.")
+            ("uni", "Experimental use; Estimate K during marginalizing – Riolo's approach.")
             ("cooling_schedule,c", po::value<std::string>(&cooling_schedule)->default_value("exponential"),
              "Cooling schedule for the simulated annealing algorithm. Options are exponential, "\
              "linear, logarithmic and constant.")
@@ -82,12 +78,12 @@ int main(int argc, char const *argv[]) {
              "             d (delay > 1)\n"\
              "Constant: T (temperature > 0)")
             ("steps_await,x", po::value<unsigned int>(&steps_await)->default_value(1000),
-            "Stop the algorithm after x successive sweeps occurred and both the max/min entropy values did not change.")
+             "Stop the algorithm after x successive sweeps occurred and both the max/min entropy values did not change.")
             ("epsilon,E", po::value<double>(&epsilon)->default_value(1.),
-            "The parameter epsilon for faster vertex proposal moves (in Tiago Peixoto's prescription).")
+             "The parameter epsilon for faster vertex proposal moves (in Tiago Peixoto's prescription).")
             ("randomize,r",
              "Randomize initial block state.")
-            ("seed,d", po::value < unsigned int > (&seed),
+            ("seed,d", po::value<unsigned int>(&seed),
              "Seed of the pseudo random number generator (Mersenne-twister 19937). A random seed is used if seed is not specified.")
             ("help,h", "Produce this help message.");
 
@@ -97,9 +93,9 @@ int main(int argc, char const *argv[]) {
 
     if (var_map.count("help") > 0 || argc == 1) {
 #if OUTPUT_HISTORY == 0
-        std::cout << "MCMC algorithms for the SBM (final output only)\n";
+        std::cout << "MCMC algorithms for the bipartiteSBM (final output only)\n";
 #else
-        std::cout << "MCMC algorithms for the SBM (output intermediate states)\n";
+        std::cout << "MCMC algorithms for the bipartiteSBM (output intermediate states)\n";
 #endif
         std::cout << "Usage:\n"
                   << "  " + std::string(argv[0]) + " [--option_1=value] [--option_s2=value] ...\n";
@@ -123,15 +119,10 @@ int main(int argc, char const *argv[]) {
     if (var_map.count("estimate") > 0) {
         estimate = true;
     }
-
-    if (var_map.count("uni1") > 0) {
-        uni1 = true;
-        is_bipartite = false;
-    } else if (var_map.count("uni2") > 0) {
-        uni2 = true;
+    if (var_map.count("uni") > 0) {
+        uni = true;
         is_bipartite = false;
     }
-
     if (var_map.count("maximize") > 0) {
         maximize = true;
         if (var_map.count("cooling_schedule_kwargs") == 0) {
@@ -152,7 +143,7 @@ int main(int argc, char const *argv[]) {
                 cooling_schedule_kwargs[0] = 1;
             }
         } else {
-            // kwards not defaulted, must check.
+            // kwargs not defaulted, must check.
             if (cooling_schedule == "exponential") {
                 if (cooling_schedule_kwargs[0] <= 0) {
                     std::cerr << "Invalid cooling schedule argument for linear schedule: T_0 must be grater than 0.\n";
@@ -210,13 +201,16 @@ int main(int argc, char const *argv[]) {
             }
         }
     }
-    if (var_map.count("epsilon") > 0) {
-        std::clog << "An epsilon param is assigned; we will use Tiago's smart MCMC moves. \n";
-        use_mh_tiago = true;
-    } else {
-        std::cerr << "[ERROR] An epsilon param is NOT assigned; \n";
-        std::cerr << "to perform MCMC with naive proposals, assign a large value for the epsilon parameter (eq. -E 10000.). \n";
-        return 1;
+    if (var_map.count("estimate") == 0) {
+        if (var_map.count("epsilon") > 0) {
+            std::clog << "An epsilon param is assigned; we will use Tiago Peixoto's smart MCMC moves. \n";
+            use_mh_tiago = true;
+        } else {
+            std::cerr << "[ERROR] An epsilon param is NOT assigned; \n";
+            std::cerr
+                    << "to perform MCMC with naive proposals, assign a large value for the epsilon parameter (eq. -E 10000.). \n";
+            return 1;
+        }
     }
     if (var_map.count("randomize") > 0) {
         randomize = true;
@@ -225,11 +219,8 @@ int main(int argc, char const *argv[]) {
         // seeding based on the clock
         seed = (unsigned int) std::chrono::high_resolution_clock::now().time_since_epoch().count();
     }
-
     /* ~~~~~ Setup objects ~~~~~~~*/
     std::mt19937 engine(seed);
-
-
     uint_vec_t memberships_init;
     if (var_map.count("membership_path") != 0) {
         std::clog << "Now trying to read membership from membership_path.\n";
@@ -241,41 +232,8 @@ int main(int argc, char const *argv[]) {
                 return 1;
             }
             // memberships from block sizes
-            {
-                unsigned int accu = 0;
-                for (auto it = n.begin(); it != n.end(); ++it) {
-                    accu += *it;
-                }
-                memberships_init.resize(accu, 0);
-                unsigned shift = 0;
-                for (unsigned int r = 0; r < n.size(); ++r) {
-                    for (unsigned int i = 0; i < n[r]; ++i) {
-                        memberships_init[shift + i] = r;
-                    }
-                    shift += n[r];
-                }
-            }
-        } else {
-            randomize = false;
-            // We have to supply a correct z parameter
-            n.resize(z[0] + z[1], 0);
-            for (unsigned int r = 0; r < memberships_init.size(); ++r) {
-                ++n[memberships_init[r]];
-            }
-
-            std::clog << " ---- read membership from file! ---- \n";
-        }
-    } else {
-        // memberships from block sizes
-        if (var_map.count("n") == 0) {
-            std::cout << "n is required (-n flag)\n";
-            return 1;
-        }
-        {
             unsigned int accu = 0;
-            for (auto it = n.begin(); it != n.end(); ++it) {
-                accu += *it;
-            }
+            for (auto const &it: n) accu += it;
             memberships_init.resize(accu, 0);
             unsigned shift = 0;
             for (unsigned int r = 0; r < n.size(); ++r) {
@@ -284,12 +242,32 @@ int main(int argc, char const *argv[]) {
                 }
                 shift += n[r];
             }
+        } else {
+            randomize = false;
+            // We have to supply a correct z parameter
+            n.resize(z[0] + z[1], 0);
+            for (auto const &mb: memberships_init) ++n[mb];
+            std::clog << " ---- read membership from file! ---- \n";
+        }
+    } else {
+        // memberships from block sizes
+        if (var_map.count("n") == 0) {
+            std::cout << "n is required (-n flag)\n";
+            return 1;
+        }
+        unsigned int accu = 0;
+        for (auto const &it: n) accu += it;
+        memberships_init.resize(accu, 0);
+        unsigned shift = 0;
+        for (unsigned int r = 0; r < n.size(); ++r) {
+            for (unsigned int i = 0; i < n[r]; ++i) {
+                memberships_init[shift + i] = r;
+            }
+            shift += n[r];
         }
     }
-
     // number of blocks
     auto g = unsigned(int(n.size()));
-
     uint_vec_t types_init;
     unsigned int KA;
     unsigned int KB;
@@ -301,26 +279,21 @@ int main(int argc, char const *argv[]) {
         std::cerr << "Number of types must be equal to 2!" << "\n";
         return 1;
     }
-
     // number of type-a and type-b vertices
     NA = y[0];
     NB = y[1];
     KA = z[0];
     KB = z[1];
 
-    {
-        unsigned int accu = 0;
-        for (auto it = n.begin(); it != n.end(); ++it) {
-            accu += *it;
+    unsigned int accu = 0;
+    for (auto const &it: n) accu += it;
+    types_init.resize(accu, 0);
+    unsigned shift = 0;
+    for (unsigned int r = 0; r < y.size(); ++r) {
+        for (unsigned int i = 0; i < y[r]; ++i) {
+            types_init[shift + i] = r;
         }
-        types_init.resize(accu, 0);
-        unsigned shift = 0;
-        for (unsigned int r = 0; r < y.size(); ++r) {
-            for (unsigned int i = 0; i < y[r]; ++i) {
-                types_init[shift + i] = r;
-            }
-            shift += y[r];
-        }
+        shift += y[r];
     }
     // sanity check for the "types"-vector
     if (memberships_init.size() != types_init.size()) {
@@ -358,21 +331,18 @@ int main(int argc, char const *argv[]) {
 
     std::unique_ptr<metropolis_hasting> algorithm;
     if (maximize && !estimate) {
-        std::clog << "We use smart jumps to maximize the posterior...\n";
+        std::clog << "*** Likelihood maximization using Tiago Peixoto's MCMC algorithm ***\n";
         algorithm = std::make_unique<mh_tiago>();
-    } else if (estimate && !maximize && uni1) {  // Riolo's implementation
-        std::clog << "We use Riolo's jumps to sample the posterior...\n";
-        algorithm = std::make_unique<mh_riolo_uni1>();
-    } else if (estimate && !maximize && uni2) {  // Riolo's implementation, but reject jumps that violate bipartite constraint
-        std::clog << "We use Riolo's jumps to sample the posterior...\n";
-        algorithm = std::make_unique<mh_riolo_uni2>();
+    } else if (estimate && !maximize && uni) {  // Riolo's implementation
+        std::clog << "*** Sampling 1D posterior via Maria A. Riolos et al.'s MCMC algorithm ***\n";
+        algorithm = std::make_unique<mh_riolo_uni>();
     } else if (estimate && !maximize) {
-        std::clog << "We use Riolo's jumps to sample the posterior...\n";
+        std::clog << "*** Sampling 1D posterior via Tzu-Chi Yen et al.'s MCMC algorithm ***\n";
         algorithm = std::make_unique<mh_riolo>();
     } else {
         // marginalize
         if (use_mh_tiago) {
-            std::clog << "We use smart jumps to marginalize the posterior...\n";
+            std::clog << "*** Likelihood marginalization using Tiago Peixoto's MCMC algorithm ***\n";
             algorithm = std::make_unique<mh_tiago>();
         }
     }
@@ -382,9 +352,7 @@ int main(int argc, char const *argv[]) {
     std::clog << "initial affinity matrix:\n";
     output_mat<uint_mat_t>(m, std::clog);
     std::clog << "sizes (g=" << n.size() << "): ";
-    for (auto it: n) {
-        std::clog << it << " ";
-    }
+    for (auto const &it: n) std::clog << it << " ";
     std::clog << "\n";
     std::clog << "burn_in: " << burn_in << "\n";
     std::clog << "sampling_steps: " << sampling_steps << "\n";
@@ -397,16 +365,12 @@ int main(int argc, char const *argv[]) {
     else { std::clog << "randomize: false\n"; }
 
     std::clog << "num_vertice_types: (y=" << y.size() << "): ";
-    for (auto it: y) {
-        std::clog << it << " ";
-    }
+    for (auto const &it: y) std::clog << it << " ";
     std::clog << "\n";
 
     std::clog << "multipartite_blocks: (z=" << z.size() << "): ";
 
-    for (auto it: z) {
-        std::clog << it << " ";
-    }
+    for (auto const &it: z) std::clog << it << " ";
     std::clog << "\n";
 
     if (maximize) {
@@ -422,19 +386,20 @@ int main(int argc, char const *argv[]) {
     if (maximize && !estimate) {
         if (cooling_schedule == "exponential") {
             rate = algorithm->anneal(blockmodel, &exponential_schedule, cooling_schedule_kwargs, sampling_steps,
-                              steps_await, engine);
+                                     steps_await, engine);
         }
         if (cooling_schedule == "linear") {
             rate = algorithm->anneal(blockmodel, &linear_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
-                              engine);
+                                     engine);
         }
         if (cooling_schedule == "logarithmic") {
             rate = algorithm->anneal(blockmodel, &logarithmic_schedule, cooling_schedule_kwargs, sampling_steps,
-                              steps_await, engine);
+                                     steps_await, engine);
         }
         if (cooling_schedule == "constant") {
-            rate = algorithm->anneal(blockmodel, &constant_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
-                              engine);
+            rate = algorithm->anneal(blockmodel, &constant_schedule, cooling_schedule_kwargs, sampling_steps,
+                                     steps_await,
+                                     engine);
         }
         output_vec<uint_vec_t>(blockmodel.get_memberships(), std::cout);
         std::clog << "acceptance ratio " << rate << "\n";

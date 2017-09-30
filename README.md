@@ -68,10 +68,25 @@ where `t` is the MCMC step. The parameters of these cooling schedule are passed 
 ```
 
 ### Example estimation
-Example call:
+In the `estimation` mode, one could use the Markov chain Monte Carlo algorithm to sample the posterior distribution directly.
+There are two complementary options for the sampling, one is via passing `--uni --estimate`, the other is via passing `--estimate`.
+The prior mode implements the algorithm outlined in the [paper](https://journals.aps.org/pre/abstract/10.1103/PhysRevE.96.032310) by Maria A. Riolo _et al_; the latter model implements the algorithm proposed in our paper.
+
+Example call for estimating the 2D posterior:
 ```commandline
-bin/mcmc_history -e dataset/southernWomen.edgelist -n 4 4 4 3 3 3 3 3 3 2 -t 1000 -y 18 14 -z 5 5 --estimate -f 10 --randomize
+bin/mcmc_history -e dataset/bisbm-n_1000-ka_4-kb_6-r-1.0-Ka_30-Ir_1.75.gt.edgelist -n 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 -t 100000 -x 10000 -y 500 500 -z 10 10 --randomize --estimate
 ```
+
+One could pass a file containing the communities of the nodes (e.g. <optional_membership_file.txt>) and initialize the MCMC chain via this starting configuration. 
+```commandline
+bin/mcmc_history -e dataset/bisbm-n_1000-ka_4-kb_6-r-1.0-Ka_30-Ir_1.75.gt.edgelist -n 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 -t 100000 -x 10000 -y 500 500 -z 10 10 --randomize --estimate --membership_path optional_membership_file.txt
+```
+
+Example call for estimating the 1D posterior:
+```commandline
+bin/mcmc_history -e dataset/bisbm-n_1000-ka_4-kb_6-r-1.0-Ka_30-Ir_1.75.gt.edgelist -n 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 -t 100000 -x 10000 -y 500 500 -z 10 10 --randomize --estimate --uni
+```
+
 
 ## References
 

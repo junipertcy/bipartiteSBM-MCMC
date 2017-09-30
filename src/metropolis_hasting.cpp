@@ -45,7 +45,6 @@ bool metropolis_hasting::step_for_estimate(blockmodel_t &blockmodel,
                                            std::mt19937 &engine) noexcept {
     std::vector<mcmc_state_t> states = sample_proposal_distribution(blockmodel, engine);
     double a = transition_ratio(blockmodel, states);
-
     if (random_real(engine) < a) {
         if (blockmodel.get_is_bipartite()) {
             blockmodel.apply_mcmc_states(states);
@@ -119,6 +118,7 @@ double metropolis_hasting::anneal(
             return double(accepted_steps) / double(t);
         }
     }
+    return double(accepted_steps) / double(duration);
 }
 
 double metropolis_hasting::estimate(blockmodel_t &blockmodel,
@@ -135,21 +135,15 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
             if (t >= t_1000) { // was: 100000
 #if OUTPUT_HISTORY == 1 // compile time output
                 if (blockmodel.get_is_bipartite()) {
-                    std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.get_log_posterior_from_mb_bi(blockmodel.get_memberships());
+                    std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.compute_log_posterior_from_mb_bi(blockmodel.get_memberships());
                     uint_vec_t mb_ = blockmodel.get_memberships();
-                    for (auto i = 0; i < mb_.size(); ++i) {
-                        std::cout << "," << mb_[i];
-                    }
+                    for (auto const &i: mb_) std::cout << "," << i;
                     std::cout << "\n";
-
                   //  std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.get_log_posterior_from_mb(blockmodel.get_memberships()) << "\n";
-
                 } else {
                     std::cout << t << "," << blockmodel.get_K() << "," << blockmodel.get_log_posterior_from_mb_uni(blockmodel.get_memberships());
                     uint_vec_t mb_ = blockmodel.get_memberships();
-                    for (auto i = 0; i < mb_.size(); ++i) {
-                       std::cout << "," << mb_[i];
-                    }
+                    for (auto const &i: mb_) std::cout << "," << i;
                     std::cout << "\n";
                 }
                 //output_vec<uint_vec_t>(memberships, std::cout)
@@ -162,7 +156,6 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
     }
     return (double) accepted_steps / ((double) sampling_frequency * num_samples);
 }
-
 
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -201,10 +194,8 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
 
             m1[i][r] = m1[r][i];
             m1[i][s] = m1[s][i];
-
         }
     }
-
     double accu0_ = 0;
     double accu1_ = 0;
     int B_;
@@ -251,25 +242,14 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
     return a;
 }
 
-std::vector<mcmc_state_t> mh_riolo_uni1::sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept {
-    return blockmodel.mcmc_state_change_riolo_uni1(engine);
+std::vector<mcmc_state_t> mh_riolo_uni::sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept {
+    return blockmodel.mcmc_state_change_riolo_uni(engine);
 }
 
-std::vector<mcmc_state_t> mh_riolo_uni2::sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept {
-    return blockmodel.mcmc_state_change_riolo_uni2(engine);
-}
-
-double mh_riolo_uni1::transition_ratio(const blockmodel_t &blockmodel,
+double mh_riolo_uni::transition_ratio(const blockmodel_t &blockmodel,
                                   const std::vector<mcmc_state_t> states) noexcept {
     double log_idl_0 = blockmodel.get_int_data_likelihood_from_mb_uni(blockmodel.get_memberships());
     double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb_uni(states[0].memberships);
-    return std::exp(+log_idl_1 - log_idl_0);
-}
-
-double mh_riolo_uni2::transition_ratio(const blockmodel_t &blockmodel,
-                                    const std::vector<mcmc_state_t> states) noexcept {
-    double log_idl_0 = blockmodel.get_int_data_likelihood_from_mb_bi(blockmodel.get_memberships());
-    double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb_bi(states[0].memberships);
     return std::exp(+log_idl_1 - log_idl_0);
 }
 

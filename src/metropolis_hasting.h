@@ -86,17 +86,9 @@ public:
                             const std::vector<mcmc_state_t> moves) noexcept override;
 };
 
-class mh_riolo_uni1: public metropolis_hasting {
+class mh_riolo_uni: public metropolis_hasting {
 public:
-    std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t &blockmodel,
-                                                           std::mt19937 &engine) noexcept override;
 
-    double transition_ratio(const blockmodel_t &blockmodel,
-                            const std::vector<mcmc_state_t> moves) noexcept override;
-};
-
-class mh_riolo_uni2: public metropolis_hasting {
-public:
     std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t &blockmodel,
                                                            std::mt19937 &engine) noexcept override;
 
