@@ -28,6 +28,10 @@ namespace po = boost::program_options;
 
 int main(int argc, char const *argv[]) {
     /* ~~~~~ Program options ~~~~~~~*/
+    unsigned int KA;
+    unsigned int KB;
+    unsigned int NA;
+    unsigned int NB;
     std::string edge_list_path;
     std::string membership_path;
     uint_vec_t n;
@@ -60,7 +64,7 @@ int main(int argc, char const *argv[]) {
              "Number of sampling steps in marginalize mode. Length of the simulated annealing process.")
             ("sampling_frequency,f", po::value<unsigned int>(&sampling_frequency)->default_value(10),
              "Number of step between each sample in marginalize mode. Unused in likelihood maximization mode.")
-            ("bisbm_partition,z", po::value<uint_vec_t>(&z)->multitoken(), "BISBM number of blocks to be inferred.")
+            ("bisbm_partition,z", po::value<uint_vec_t>(&z)->multitoken(), "bipartite number of blocks to be inferred.")
             ("maximize,m", "Maximize likelihood instead of marginalizing.")
             ("estimate,l", "Estimate KA and KB during marginalizing.")
             ("uni", "Experimental use; Estimate K during marginalizing – Riolo's approach.")
@@ -109,10 +113,6 @@ int main(int argc, char const *argv[]) {
 
     if (var_map.count("types") == 0 && var_map.count("use_bisbm") > 0) {
         std::cout << "types is required for bisbm mode (-y flag)\n";
-        return 1;
-    }
-    if (var_map.count("bisbm_partition") == 0) {
-        std::cout << "number of partitions is required (-z flag)\n";
         return 1;
     }
 
@@ -222,19 +222,25 @@ int main(int argc, char const *argv[]) {
     /* ~~~~~ Setup objects ~~~~~~~*/
     std::mt19937 engine(seed);
     uint_vec_t memberships_init;
+    // TODO: re-write this
+
     if (var_map.count("membership_path") != 0) {
         std::clog << "Now trying to read membership from membership_path.\n";
-
         if (!load_memberships(memberships_init, membership_path)) {
             std::clog << "WARNING: error in loading memberships, read memberships from block sizes\n";
             if (var_map.count("n") == 0) {
                 std::cout << "n is required (-n flag)\n";
                 return 1;
             }
+            if (var_map.count("bisbm_partition") == 0) {
+                std::cout << "number of partitions is required (-z flag)\n";
+                return 1;
+            }
             // memberships from block sizes
             unsigned int accu = 0;
             for (auto const &it: n) accu += it;
             memberships_init.resize(accu, 0);
+
             unsigned shift = 0;
             for (unsigned int r = 0; r < n.size(); ++r) {
                 for (unsigned int i = 0; i < n[r]; ++i) {
@@ -244,15 +250,36 @@ int main(int argc, char const *argv[]) {
             }
         } else {
             randomize = false;
-            // We have to supply a correct z parameter
-            n.resize(z[0] + z[1], 0);
+            // -n and -z are not needed
+            n.assign(memberships_init.size(), 0);
             for (auto const &mb: memberships_init) ++n[mb];
+            // initiate z
+            z.resize(2, 0);
+            unsigned int max_n_ka = 0;
+            unsigned int max_n_kb = 0;
+            for (unsigned int mb_ = 0; mb_ < memberships_init.size(); ++mb_) {
+                if (mb_ < y[0]) {
+                    if (memberships_init[mb_] > max_n_ka) {
+                        max_n_ka = memberships_init[mb_];
+                    }
+                }
+                if (memberships_init[mb_] > max_n_kb) {
+                    max_n_kb = memberships_init[mb_];
+                }
+            }
+            z[0] = max_n_ka + 1;
+            z[1] = max_n_kb - max_n_ka;
+            n.resize(z[0] + z[1], 0);
             std::clog << " ---- read membership from file! ---- \n";
         }
     } else {
         // memberships from block sizes
         if (var_map.count("n") == 0) {
             std::cout << "n is required (-n flag)\n";
+            return 1;
+        }
+        if (var_map.count("bisbm_partition") == 0) {
+            std::cout << "number of partitions is required (-z flag)\n";
             return 1;
         }
         unsigned int accu = 0;
@@ -269,16 +296,14 @@ int main(int argc, char const *argv[]) {
     // number of blocks
     auto g = unsigned(int(n.size()));
     uint_vec_t types_init;
-    unsigned int KA;
-    unsigned int KB;
-    unsigned int NA;
-    unsigned int NB;
+
     // number of types (must be equal to 2; TODO: support multipartite version!)
     auto num_types = unsigned(int(y.size()));
     if (num_types != 2) {
         std::cerr << "Number of types must be equal to 2!" << "\n";
         return 1;
     }
+
     // number of type-a and type-b vertices
     NA = y[0];
     NB = y[1];
@@ -288,6 +313,7 @@ int main(int argc, char const *argv[]) {
     unsigned int accu = 0;
     for (auto const &it: n) accu += it;
     types_init.resize(accu, 0);
+
     unsigned shift = 0;
     for (unsigned int r = 0; r < y.size(); ++r) {
         for (unsigned int i = 0; i < y[r]; ++i) {
@@ -295,6 +321,7 @@ int main(int argc, char const *argv[]) {
         }
         shift += y[r];
     }
+
     // sanity check for the "types"-vector
     if (memberships_init.size() != types_init.size()) {
         std::cerr << memberships_init.size() << ", " << types_init.size() << '\n';
@@ -306,6 +333,7 @@ int main(int argc, char const *argv[]) {
     for (unsigned int i = 0; i < g; ++i) {
         N += n[i];
     }
+
     // Graph structure
     edge_list_t edge_list;
     load_edge_list(edge_list, edge_list_path);
