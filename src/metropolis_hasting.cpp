@@ -94,6 +94,7 @@ double metropolis_hasting::anneal(
         unsigned int duration,
         unsigned int steps_await,
         std::mt19937 &engine) noexcept {
+
     unsigned int accepted_steps = 0;
     unsigned int u = 0;
     entropy_min_ = 1000000;

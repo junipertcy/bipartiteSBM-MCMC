@@ -1,6 +1,4 @@
-# bipartiteSBM-MCMC
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
-[![Build Status](https://travis-ci.org/junipertcy/bipartiteSBM-MCMC.svg?branch=master)](https://travis-ci.org/junipertcy/bipartiteSBM-MCMC)
+# bipartiteSBM-MCMC [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com) [![Build Status](https://travis-ci.org/junipertcy/bipartiteSBM-MCMC.svg?branch=master)](https://travis-ci.org/junipertcy/bipartiteSBM-MCMC)
 
 **bipartiteSBM-MCMC** is a MCMC sampler for the degree-corrected bipartite Stochastic Block Model. Three sampling procedures are provided.
 In `marginalize` and `maximize` mode, the group memberships of each node are found assuming we know the number of communities, (Ka, Kb), of the system.
