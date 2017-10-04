@@ -82,12 +82,16 @@ bin/mcmc -e <edge_list_path> -n <block_sizes> -b <burn_in_steps> -t <sampling_st
     
     `--membership_path <optional_membership_file>` – initial node membership configuration for seeding the Markov chain.
  
-Example call:
+#### Example call (marginalization):
 ```commandline
 bin/mcmc -e dataset/bisbm-n_1000-ka_4-kb_6-r-1.0-Ka_30-Ir_1.75.gt.edgelist -n 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 -t 20000 -x 100 -b 1000 -y 500 500 -z 10 10 -f 10 > marginalization_result.txt
 ```
 The output is sent to `stdout` thus via passing a pipe `>` to a file path, one could work further on the result.
 
+* OUTPUT:
+    > 0 0 1 1 0 0 1 0 1 1 1 0 1 0 0 1 0 1 1 0 1 0 1 1 0 0 0 ...
+    
+The output is an instance of Monte Carlo samples. Each column represents the community label of each node.
 
 ### <a id="example-maximization"></a>Example maximization
 
@@ -126,10 +130,18 @@ bin/mcmc -e <edge_list_path> -n <block_sizes> -t <sampling_steps> -x <steps_awai
     `--membership_path <optional_membership_file>` – initial node membership configuration for seeding the Markov chain.
 
 
+#### Example call (maximization):
 The call is similar to that of the marginalization mode:
 ```commandline
 bin/mcmc -e dataset/southernWomen.edgelist -n 4 4 4 3 3 3 3 3 3 2 -t 1000 -x 100 --maximize -c exponential -a 10 0.1 -y 18 14 -z 5 5 -E 0.001 --randomize
 ```
+
+* OUTPUT:
+    > 4 4 4 4 4 4 2 0 2 1 3 3 1 1 1 0 2 2 6 6 6 6 6 8 5 8 8 9 5 7 7 7
+    
+Same as `marginalization`, the output is an instance of Monte Carlo samples.
+Each column represents the community label of each node.
+
 
 ### <a id="example-estimation"></a>Example estimation
 In the `estimation` mode, one could use the Markov chain Monte Carlo algorithm to sample the posterior distribution directly.
@@ -166,26 +178,51 @@ bin/mcmc_history -e <edge_list_path> -n <block_sizes> -t <sampling_steps> -y <bl
     
     `--membership_path <optional_membership_file>` – initial node membership configuration for seeding the Markov chain.
 
-Example call for estimating the 2D posterior:
+#### Example call (estimating the 2D posterior):
 ```commandline
 bin/mcmc_history -e dataset/bisbm-n_1000-ka_4-kb_6-r-1.0-Ka_30-Ir_1.75.gt.edgelist -n 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 -t 100000 -x 10000 -y 500 500 -z 10 10 --randomize --estimate
 ```
 
-Example call for estimating the 1D posterior:
+#### Example call (estimating the 1D posterior):
 ```commandline
 bin/mcmc_history -e dataset/bisbm-n_1000-ka_4-kb_6-r-1.0-Ka_30-Ir_1.75.gt.edgelist -n 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 -t 100000 -x 10000 -y 500 500 -z 10 10 --randomize --estimate --uni
 ```
 
+#### Example call (estimating the 2D posterior with user-defined initial condition):
 One could pass a file containing the communities of the nodes (e.g. `<optional_membership_file.txt>`) and initialize the MCMC chain via this starting configuration. 
 When this is the case, `-n` and `-z` flag are not needed.
 ```commandline
 time bin/mcmc_history -e ../../dataset/bisbm-n_1000-ka_4-kb_6-r-1.0-Ka_30-Ir_1.75.gt.edgelist -t 10000 -x 10000 -y 500 500 --randomize --estimate --membership_path dataset/optional_membership_file.txt
 ```
-
+#### Example call (estimating the 1D posterior with user-defined initial condition):
 Or, if one does not specifically target a bipartite structure:
  ```commandline
 time bin/mcmc_history -e ../../dataset/bisbm-n_1000-ka_4-kb_6-r-1.0-Ka_30-Ir_1.75.gt.edgelist -t 10000 -x 10000 -y 500 500 --randomize --estimate --membership_path dataset/optional_membership_file.txt --uni
  ```
+ 
+* OUTPUT (bipartite):
+    > ...<br/>
+    99970,4,6,-70531.4,0,0,0,0,0,1,0,0,0,0,0,0,0,0, ...<br/>
+    99980,4,6,-70529.3,0,0,1,0,0,0,0,0,0,0,0,0,0,0, ...<br/>
+    99990,4,6,-70529.3,0,0,1,0,0,0,0,0,0,0,0,0,0,0, ...
+    
+    
+The output consists of a series of Monte Carlo samples. By default, the only the last 1000 samples are sent to stdout.
+The first four columns are Monte Carlo sweep number, number of groups `Ka`, number of groups `Kb` and the log-likelihood,
+the latter accurate to within overall additive and multiplicative constants.
+The successive columns represent the community labels of each node.
+
+* OUTPUT (unipartite; `--uni` mode):
+    > ...<br/>
+    99970,10,-61119.1,0,0,0,0,0,1,0,0,0,0,0,0,0,0, ...<br/>
+    99980,10,-61118.3,0,0,1,0,0,0,0,0,0,0,0,0,0,0, ...<br/>
+    99990,10,-61120,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0, ...
+    
+Similarly, the output consists of a series of Monte Carlo samples and only the last 1000 samples are printed.  
+The first four columns are Monte Carlo sweep number, number of groups `K` and the log-likelihood,
+the latter accurate to within overall additive and multiplicative constants.
+The successive columns represent the community labels of each node.
+
 
 ## Further specs
 
