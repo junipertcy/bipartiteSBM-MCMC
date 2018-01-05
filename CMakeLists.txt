@@ -42,8 +42,7 @@ cxx_feature_check(STEADY_CLOCK)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~
 # Options
 # ~~~~~~~~~~~~~~~~~~~~~~~~~
-option(LOGGING
-        "Log input information to std::clog." ON)
+option(LOGGING "Log input information to std::clog." ON)
 
 # Defaults
 set (LOGGING 1)

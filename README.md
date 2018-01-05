@@ -266,3 +266,8 @@ Please cite:
 **Estimating the number of communities in a bipartite network**
 
 Tzu-Chi Yen and Daniel Larremore, *in preparation*.
+
+## <a id="Acknowledgement"></a>Acknowledgement
+
+Tzu-Chi Yen wishes to thank Jean-Gabriel Young, whose [sbm_canonical_mcmc](https://github.com/jg-you/sbm_canonical_mcmc)
+project inspires the code design pattern of this project.

@@ -51,7 +51,7 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &type
     // Note that Tiago's MCMC proposal jumps has to randomly access elements in an adjacency list
     // Here, we define an vectorized data structure to make such data access O(1) [else it'll be O(n)].
     adj_list_.resize(adj_list_ptr_->size());
-    for (auto i = 0; i < adj_list_ptr_->size(); ++i) {
+    for (unsigned int i = 0; i < adj_list_ptr_->size(); ++i) {
         adj_list_[i].resize(adj_list_ptr_->at(i).size(), 0);
     }
     for (unsigned int node = 0; node < memberships_.size(); ++node) {

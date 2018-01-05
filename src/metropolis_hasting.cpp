@@ -109,6 +109,7 @@ double metropolis_hasting::anneal(
         if (step(blockmodel, cooling_schedule(t, cooling_schedule_kwargs), engine)) {
             ++accepted_steps;
         }
+        // TODO: check the effect of `epsilon` from the code block here
         if (_entropy_max == entropy_max_ && _entropy_min == entropy_min_) {
             u += 1;
         } else {
@@ -128,8 +129,7 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
                                     unsigned int num_samples,
                                     std::mt19937 &engine) noexcept {
     unsigned int accepted_steps = 0;
-    unsigned int t_1000 = sampling_frequency * num_samples - 1000;
-    //unsigned int t_1000 = 0;
+    unsigned int t_1000 = sampling_frequency * num_samples - 1000;  // stdout the last 1000 steps
 
     if (blockmodel.get_is_bipartite()) {
         log_idl_ = blockmodel.get_int_data_likelihood_from_mb_bi(blockmodel.get_memberships(), false);
@@ -141,7 +141,7 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
     for (unsigned int t = 0; t < sampling_frequency * num_samples; ++t) {
         if (t % sampling_frequency == 0) {
             // Sample the blockmodel
-            if (t >= t_1000) { // was: 100000
+            if (t >= t_1000) {
 #if OUTPUT_HISTORY == 1 // compile time output
                 if (blockmodel.get_is_bipartite()) {
                     std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.compute_log_posterior_from_mb_bi(blockmodel.get_memberships());
@@ -165,7 +165,6 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
     }
     return (double) accepted_steps / ((double) sampling_frequency * num_samples);
 }
-
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // virtual functions implementation
