@@ -25,6 +25,15 @@ double constant_schedule(unsigned int t, float_vec_t cooling_schedule_kwargs) no
     return cooling_schedule_kwargs[0];
 }
 
+double abrupt_cool_schedule(unsigned int t, float_vec_t cooling_schedule_kwargs) noexcept {
+    // Does there exist a way to improve the cooling? Maybe make it an exponential decay one against an abrupt cooling?
+    if (t < cooling_schedule_kwargs[0]) {
+        return 1.;
+    } else {
+        return 0.;
+    }
+}
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // metropolis_hasting class
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

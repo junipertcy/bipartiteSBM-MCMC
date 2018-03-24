@@ -17,6 +17,8 @@ double logarithmic_schedule(unsigned int t, float_vec_t cooling_schedule_kwargs)
 
 double constant_schedule(unsigned int t, float_vec_t cooling_schedule_kwargs) noexcept;
 
+double abrupt_cool_schedule(unsigned int t, float_vec_t cooling_schedule_kwargs) noexcept;
+
 class metropolis_hasting {
 protected:
     std::uniform_real_distribution<> random_real;

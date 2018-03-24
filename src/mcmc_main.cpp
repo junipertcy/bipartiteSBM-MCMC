@@ -68,7 +68,7 @@ int main(int argc, char const *argv[]) {
             ("maximize,m", "Maximize likelihood instead of marginalizing.")
             ("estimate,l", "Estimate KA and KB during marginalizing.")
             ("uni", "Experimental use; Estimate K during marginalizing – Riolo's approach.")
-            ("cooling_schedule,c", po::value<std::string>(&cooling_schedule)->default_value("exponential"),
+            ("cooling_schedule,c", po::value<std::string>(&cooling_schedule)->default_value("abrupt_cool"),
              "Cooling schedule for the simulated annealing algorithm. Options are exponential, "\
              "linear, logarithmic and constant.")
             ("cooling_schedule_kwargs,a", po::value<float_vec_t>(&cooling_schedule_kwargs)->multitoken(),
@@ -142,6 +142,9 @@ int main(int argc, char const *argv[]) {
             if (cooling_schedule == "constant") {
                 cooling_schedule_kwargs[0] = 1;
             }
+            if (cooling_schedule == "abrupt_cool") {
+                cooling_schedule_kwargs[0] = steps_await;
+            }
         } else {
             // kwargs not defaulted, must check.
             if (cooling_schedule == "exponential") {
@@ -195,8 +198,15 @@ int main(int argc, char const *argv[]) {
                     std::cerr << "Passed value: T=" << cooling_schedule_kwargs[0] << "\n";
                     return 1;
                 }
+            } else if (cooling_schedule == "abrupt_cool") {
+                if (cooling_schedule_kwargs[0] <= 0) {
+                    std::cerr
+                            << "Invalid cooling schedule argument for abrupt_cool schedule: tau must be larger than 0. \n";
+                    std::cerr << "Passed value: tau=" << cooling_schedule_kwargs[0] << "\n";
+                    return 1;
+                }
             } else {
-                std::cerr << "Invalid cooling schedule. Options are exponential, linear, logarithmic.\n";
+                std::cerr << "Invalid cooling schedule. Options are exponential, linear, logarithmic, abrupt_cool.\n";
                 return 1;
             }
         }
@@ -426,8 +436,11 @@ int main(int argc, char const *argv[]) {
         }
         if (cooling_schedule == "constant") {
             rate = algorithm->anneal(blockmodel, &constant_schedule, cooling_schedule_kwargs, sampling_steps,
-                                     steps_await,
-                                     engine);
+                                     steps_await, engine);
+        }
+        if (cooling_schedule == "abrupt_cool") {
+            rate = algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, sampling_steps,
+                                     steps_await, engine);
         }
         output_vec<uint_vec_t>(blockmodel.get_memberships(), std::cout);
         std::clog << "acceptance ratio " << rate << "\n";

@@ -228,8 +228,9 @@ The successive columns represent the community labels of each node.
 
 ### <a id="cooling-schedule"></a>Cooling schedule
 
-Four cooling schedules are implemented: `exponential`, `linear`, `logarithmic` and `constant`. 
-It is advised to test these annealing scheme in order to decide which best finds the optimum.
+Four cooling schedules are implemented: `exponential`, `linear`, `logarithmic`, `constant`, and `abrupt_cool`. 
+The default option is the abrupt cooling one (`abrupt_cool`),
+yet it is advised to test these annealing schemes in order to decide which one best approaches the _maximum a posteriori_ state.
 
 There inverse temperature is given as
 ```
@@ -237,17 +238,19 @@ beta(t) = 1/T_0 * alpha^(-t)                (Exponential)
 beta(t) = 1/T_0 * [1 - eta * t / T_0]^(-1)  (Linear)
 beta(t) = log(t + d) / c                    (Logarithmic)
 beta(t) = 1 / T_0                           (Constant)
+beta(t) = 1 if t < T_0 else 0               (Abrupt Cooling)
 ```
 
-where `t` is the MCMC step. The parameters of these cooling schedule are passed like so:
+where `t` is the MCMC step. The parameters of these cooling schedules are passed like so:
 ```
--a T_0 alpha    (Exponential)
--a T_0 eta      (Linear)
--a c d          (Logarithmic)
--a T_0          (Constant)
+-a T_0 alpha    (Exponential; 1, 0.99)
+-a T_0 eta      (Linear; sampling_steps + 1, 1)
+-a c d          (Logarithmic; 1, 1)
+-a T_0          (Constant; 1)
+-a T_0          (Abrupt Cooling; steps_await)
 ```
-
-Note that `<param_2>` is not required when the cooling schedule is `constant`.
+The defaulted parameters are listed in the parentheses.
+Note that `<param_2>` is not required when the cooling schedule is `constant` or `abrupt_cool`. 
 
 ### <a id="optional-membership-file"></a>Optional membership file
 
