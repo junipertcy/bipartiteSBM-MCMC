@@ -26,6 +26,7 @@ protected:
 public:
     // Ctor
     metropolis_hasting() : random_real(0, 1) { ; }
+
     bool is_last_state_rejected_ = true;  // for `estimate` mode
     double log_idl_ = 0.;  // for `estimate` mode
     double cand_log_idl_ = 0.;  // for `estimate` mode
@@ -75,26 +76,52 @@ public:
                     unsigned int sampling_frequency,
                     unsigned int num_samples,
                     std::mt19937 &engine) noexcept;
+
 };
 
 /* Inherited classes with specific definitions */
 class mh_tiago : public metropolis_hasting {
 public:
-    std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept override;
+    std::vector<mcmc_state_t>
+    sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept override;
 
     double transition_ratio(const blockmodel_t &blockmodel,
                             const std::vector<mcmc_state_t> &moves) noexcept override;
+
+
+private:
+    // TODO: how do we initiate values for these vectors?
+    int_vec_t ki;
+
+    int_vec_t deg;
+    int_vec_t n;
+
+    uint_mat_t m0;
+    uint_vec_t m0_r;
+
+    uint_mat_t m1;
+    uint_vec_t m1_r;
+
+    std::vector<int>::iterator ki_;
+    std::vector<unsigned int>::iterator m0_ri;
+    std::vector<unsigned int>::iterator m0_si;
+    std::vector<unsigned int>::iterator m0_r_i;
+    std::vector<unsigned int>::iterator m1_r_i;
+    std::vector<unsigned int>::iterator m1_ri;
+    std::vector<unsigned int>::iterator m1_si;
+
+
 };
 
 class mh_riolo : public metropolis_hasting {
 public:
     std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t &blockmodel,
-                                                          std::mt19937 &engine) noexcept override;
+                                                           std::mt19937 &engine) noexcept override;
 
     double transition_ratio_est(blockmodel_t &blockmodel, std::vector<mcmc_state_t> &moves) noexcept override;
 };
 
-class mh_riolo_uni: public metropolis_hasting {
+class mh_riolo_uni : public metropolis_hasting {
 public:
 
     std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t &blockmodel,

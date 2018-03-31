@@ -5,6 +5,15 @@
 
 using namespace std;
 
+unsigned int compute_total_num_groups_from_mb(uint_vec_t mb) noexcept {
+    unsigned int cand_K_ = 0;
+    for (auto const &_mb: mb) {
+        if (_mb > cand_K_) cand_K_ = _mb;
+    }
+    unsigned int cand_n = cand_K_ + 1;
+    return cand_n;
+}
+
 blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &types, unsigned int g, unsigned int KA,
                            unsigned int KB, double epsilon, unsigned int N, adj_list_t *adj_list_ptr, bool is_bipartite) :
         random_block_(0, g - 1), random_node_(0, N - 1) {
@@ -63,7 +72,7 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &type
     }
 }
 
-std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo_uni(std::mt19937 &engine) {
+std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo_uni(std::mt19937 &engine) noexcept {
     std::vector<mcmc_state_t> states(1);
     bool cond = true;
     while (cond) {
@@ -149,7 +158,7 @@ std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo_uni(std::mt19937
     return states;
 }
 
-std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo(std::mt19937 &engine) {
+std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo(std::mt19937 &engine) noexcept {
     // This function returns a move, which will be accepted or rejected by Hasting's rule
     // if it is updated AND it increases K_a or K_b, then we re-label the nodes outside of this function
     std::vector<mcmc_state_t> states(1);
@@ -360,9 +369,6 @@ std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt19937 
     double R_t = 0.;
     unsigned int vertex_j;
     unsigned int proposal_t;
-    uint_mat_t m = get_m();
-    uint_vec_t m_r = get_m_r();
-    std::vector<mcmc_state_t> moves(1);
     int proposal_membership = 0;
 
     if (KA_ == 1 && KB_ == 1) {
@@ -399,15 +405,15 @@ std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt19937 
         proposal_t = memberships_[vertex_j];
         if (types_[moves[0].vertex] == 0) {
             proposal_membership = int(random_real(engine) * KA_);
-            R_t = epsilon * (KA_) / (m_r[proposal_t] + epsilon * (KA_));
+            R_t = epsilon * (KA_) / (m_r_[proposal_t] + epsilon * (KA_));
         } else if (types_[moves[0].vertex] == 1) {
             proposal_membership = int(random_real(engine) * KB_) + KA_;
-            R_t = epsilon * (KB_) / (m_r[proposal_t] + epsilon * (KB_));
+            R_t = epsilon * (KB_) / (m_r_[proposal_t] + epsilon * (KB_));
         }
         if (random_real(engine) < R_t) {
             moves[0].target = unsigned(proposal_membership);
         } else {
-            std::discrete_distribution<> d(m[proposal_t].begin(), m[proposal_t].end());
+            std::discrete_distribution<> d(m_[proposal_t].begin(), m_[proposal_t].end());
             moves[0].target = unsigned(d(gen));
         }
     }
@@ -428,14 +434,6 @@ uint_mat_t blockmodel_t::get_m() const noexcept { return m_; }
 
 uint_vec_t blockmodel_t::get_m_r() const noexcept { return m_r_; }
 
-unsigned int blockmodel_t::compute_total_num_groups_from_mb(uint_vec_t mb) const noexcept {
-    unsigned int cand_K_ = 0;
-    for (auto const &_mb: mb) {
-        if (_mb > cand_K_) cand_K_ = _mb;
-    }
-    unsigned int cand_n = cand_K_ + 1;
-    return cand_n;
-}
 
 // TODO: move it to the template?
 void blockmodel_t::compute_m_from_mb(uint_vec_t &mb, bool proposal) noexcept {

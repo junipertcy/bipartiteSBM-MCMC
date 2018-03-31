@@ -8,6 +8,9 @@
 #include <vector>
 #include "types.h"
 
+unsigned int compute_total_num_groups_from_mb(uint_vec_t mb) noexcept;
+
+
 class blockmodel_t {
 protected:
     std::uniform_real_distribution<> random_real;
@@ -21,9 +24,9 @@ public:
     blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &types, unsigned int g, unsigned int KA,
                  unsigned int KB, double epsilon, unsigned int N, adj_list_t *adj_list_ptr, bool is_bipartite);
 
-    std::vector<mcmc_state_t> mcmc_state_change_riolo_uni(std::mt19937 &engine);
+    std::vector<mcmc_state_t> mcmc_state_change_riolo_uni(std::mt19937 &engine) noexcept;
 
-    std::vector<mcmc_state_t> mcmc_state_change_riolo(std::mt19937 &engine);
+    std::vector<mcmc_state_t> mcmc_state_change_riolo(std::mt19937 &engine) noexcept;
 
     std::vector<mcmc_state_t> single_vertex_change_tiago(std::mt19937 &engine) noexcept;
 
@@ -116,6 +119,9 @@ private:
     int_vec_t k_r_;
     int_vec_t cand_k_r_;
 
+    /// for single_vertex_change_tiago
+    std::vector<mcmc_state_t> moves = std::vector<mcmc_state_t>(1);
+
     /// Internal distribution. Generator must be passed as a service
     std::uniform_int_distribution<> random_block_;
     std::uniform_int_distribution<> random_node_;
@@ -127,7 +133,7 @@ private:
     void compute_m_r() noexcept;
 
     /* Compute stuff from scratch; used for `estimate` mode */
-    unsigned int compute_total_num_groups_from_mb(uint_vec_t mb) const noexcept;
+
     void compute_m_from_mb(uint_vec_t &mb, bool proposal) noexcept;
     void compute_n_r_from_mb(uint_vec_t &mb, bool proposal) noexcept;
     void compute_k_r_from_mb(uint_vec_t &mb, bool proposal) noexcept;

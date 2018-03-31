@@ -85,7 +85,8 @@ double metropolis_hasting::marginalize(blockmodel_t &blockmodel,
 #if OUTPUT_HISTORY == 1 // compile time output
             output_vec<uint_vec_t>(memberships, std::cout);
 #endif
-            for (unsigned int i = 0; i < blockmodel.get_N(); ++i) {
+            const unsigned int n = blockmodel.get_N();
+            for (unsigned int i = 0; i < n; ++i) {
                 marginal_distribution[i][memberships[i]] += 1;
             }
         }
@@ -191,61 +192,91 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
     unsigned int s = moves[0].target;
     double epsilon = blockmodel.get_epsilon();
 
-    int_vec_t ki = blockmodel.get_k(v);
-    int_vec_t deg = blockmodel.get_degree();
-    int_vec_t n = blockmodel.get_size_vector();
+    ki = blockmodel.get_k(v);
+    deg = blockmodel.get_degree();
+    n = blockmodel.get_size_vector();
 
-    uint_mat_t m0 = blockmodel.get_m();
-    uint_vec_t m0_r = blockmodel.get_m_r();
+    m0 = blockmodel.get_m();
 
-    uint_mat_t m1 = m0;
-    uint_vec_t m1_r = m0_r;
+    m0_r = blockmodel.get_m_r();
+
+    m1 = m0;
+    m1_r = m0_r;
 
     m1_r[r] -= deg[v];
     m1_r[s] += deg[v];
 
-    for (unsigned int i = 0; i < ki.size(); ++i) {
-        if (ki[i] != 0) {
-            m1[r][i] -= ki[i];
-            m1[s][i] += ki[i];
+    int i = 0;
+    for (auto const& _ki: ki) {
+        if (_ki != 0) {
+            m1[r][i] -= _ki;
+            m1[s][i] += _ki;
 
             m1[i][r] = m1[r][i];
             m1[i][s] = m1[s][i];
         }
+        ++i;
     }
-    double accu0_ = 0;
-    double accu1_ = 0;
+
+    double accu0_ = 0.;
+    double accu1_ = 0.;
     int B_;
     if (r < blockmodel.get_KA()) {
-        B_ = blockmodel.get_KA();
         // If it is type-A nodes to move, then on K_A label possibilities are allowed for the node to change
+        B_ = blockmodel.get_KA();
     } else {
         B_ = blockmodel.get_KB();
     }
-    for (unsigned int t_ = 0; t_ < n.size(); ++t_) {
-        accu0_ += (double) ki[t_] * ((double) m0[t_][s] + epsilon) / ((double) m0_r[t_] + epsilon * B_);
-        accu1_ += (double) ki[t_] * ((double) m1[t_][r] + epsilon) / ((double) m1_r[t_] + epsilon * B_);
+
+    ki_ = ki.begin();
+    m0_si = m0[s].begin();
+    m1_ri = m1[r].begin();
+    m0_r_i = m0_r.begin();
+    m1_r_i = m1_r.begin();
+    for (auto const & _n: n ){
+        accu0_ += *ki_ * (*m0_si + epsilon) / (*m0_r_i + epsilon * B_);
+        accu1_ += *ki_ * (*m1_ri + epsilon) / (*m1_r_i + epsilon * B_);
+        ++ki_;
+        ++m0_si;
+        ++m1_ri;
+        ++m0_r_i;
+        ++m1_r_i;
     }
 
     double entropy0 = 0.;
     double entropy1 = 0.;
-    for (unsigned int i = 0; i < ki.size(); ++i) {  // TODO: re-write it
-            if (m0_r[r] * m0_r[i] * m0[r][i] != 0) {
-                entropy0 -= 1. / 1. * (double) m0[r][i] *
-                            std::log((double) m0[r][i] / (double) m0_r[r] / (double) m0_r[i]);
-            }
-            if (m0_r[s] * m0_r[i] * m0[s][i] != 0) {
-                entropy0 -= 1. / 1. * (double) m0[s][i] *
-                            std::log((double) m0[s][i] / (double) m0_r[s] / (double) m0_r[i]);
-            }
-            if (m1_r[r] * m1_r[i] * m1[r][i] != 0) {
-                entropy1 -= 1. / 1. * (double) m1[r][i] *
-                            std::log((double) m1[r][i] / (double) m1_r[r] / (double) m1_r[i]);
-            }
-            if (m1_r[s] * m1_r[i] * m1[s][i] != 0) {
-                entropy1 -= 1. / 1. * (double) m1[s][i] *
-                            std::log((double) m1[s][i] / (double) m1_r[s] / (double) m1_r[i]);
-            }
+
+    double m0_r_r = m0_r[r];
+    double m1_r_r = m1_r[r];
+    double m0_r_s = m0_r[s];
+    double m1_r_s = m1_r[s];
+
+    m0_ri = m0[r].begin();
+    m0_si = m0[s].begin();
+    m0_r_i = m0_r.begin();
+    m1_r_i = m1_r.begin();
+    m1_ri = m1[r].begin();
+    m1_si = m1[s].begin();
+
+    for (auto const& i: ki) {
+        if (m0_r_r * *m0_r_i * *m0_ri != 0) {
+            entropy0 -= 1. / 1. * *m0_ri * std::log( *m0_ri / m0_r_r / *m0_r_i);
+        }
+        if (m1_r_r * *m1_r_i * *m1_ri != 0) {
+            entropy1 -= 1. / 1. * *m1_ri * std::log( *m1_ri / m1_r_r / *m1_r_i);
+        }
+        if (m0_r_s * *m0_r_i * *m0_si != 0) {
+            entropy0 -= 1. / 1. * *m0_si * std::log( *m0_si / m0_r_s / *m0_r_i);
+        }
+        if (m1_r_s * *m1_r_i * *m1_si != 0) {
+            entropy1 -= 1. / 1. * *m1_si * std::log( *m1_si / m1_r_s / *m1_r_i);
+        }
+        ++m0_ri;
+        ++m0_si;
+        ++m0_r_i;
+        ++m1_r_i;
+        ++m1_ri;
+        ++m1_si;
     }
 
     accu_r_ = accu1_ / accu0_;
@@ -255,7 +286,7 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
     if (entropy0 <= entropy_min_) {
         entropy_min_ = entropy0;
     }
-    double a = std::exp(- (entropy1 - entropy0));
+    double a = std::exp(-(entropy1 - entropy0));
     return a;
 }
 
@@ -276,7 +307,8 @@ double mh_riolo_uni::transition_ratio_est(blockmodel_t &blockmodel, std::vector<
     return std::exp(+log_idl_1 - log_idl_0);
 }
 
-std::vector<mcmc_state_t> mh_riolo::sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept {
+std::vector<mcmc_state_t>
+mh_riolo::sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept {
     return blockmodel.mcmc_state_change_riolo(engine);
 }
 
