@@ -19,28 +19,28 @@ protected:
 
 public:
     // Ctor
-    blockmodel_t() : random_real(0, 1) { ; }
+    blockmodel_t(adj_list_t *adj_list_ptr, const uint_vec_t &types) : random_real(0, 1), adj_list_ptr_(adj_list_ptr), types_(types) { ; }
 
     blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &types, unsigned int g, unsigned int KA,
-                 unsigned int KB, double epsilon, unsigned int N, adj_list_t *adj_list_ptr, bool is_bipartite);
+                 unsigned int KB, double epsilon, unsigned int N, const adj_list_t * const adj_list_ptr, bool is_bipartite);
 
     std::vector<mcmc_state_t> mcmc_state_change_riolo_uni(std::mt19937 &engine) noexcept;
 
     std::vector<mcmc_state_t> mcmc_state_change_riolo(std::mt19937 &engine) noexcept;
 
-    std::vector<mcmc_state_t> single_vertex_change_tiago(std::mt19937 &engine) noexcept;
+    const std::vector<mcmc_state_t> single_vertex_change_tiago(std::mt19937 &engine) noexcept;
 
-    int_vec_t get_k(unsigned int vertex) const noexcept;
+    const int_vec_t* get_k(unsigned int vertex) const noexcept;
 
-    int_vec_t get_size_vector() const noexcept;
+    const int_vec_t* get_size_vector() const noexcept;
 
-    int_vec_t get_degree() const noexcept;
+    const int_vec_t* get_degree() const noexcept;
 
-    uint_vec_t get_memberships() const noexcept;
+    const uint_vec_t* get_memberships() const noexcept;
 
-    uint_mat_t get_m() const noexcept;
+    const uint_mat_t* get_m() const noexcept;  /* Optimizing this function (pass by ref) is extremely important!! (why?) */
 
-    uint_vec_t get_m_r() const noexcept;
+    const uint_vec_t* get_m_r() const noexcept;
 
     bool get_is_bipartite() const noexcept;
 
@@ -62,7 +62,7 @@ public:
 
     unsigned int get_nsize_B() const noexcept;
 
-    void apply_mcmc_moves(std::vector<mcmc_state_t> moves) noexcept;
+    void apply_mcmc_moves(std::vector<mcmc_state_t> &moves) noexcept;
 
     void apply_mcmc_states_u(std::vector<mcmc_state_t> states) noexcept;  // for uni-partite SBM
 
@@ -90,6 +90,8 @@ public:
 
     void sync_internal_states_est() noexcept;
 
+
+
 private:
     /// State variable
     bool is_bipartite_ = true;
@@ -99,13 +101,14 @@ private:
     unsigned int KB_ = 0;
     unsigned int nsize_B_ = 0;
     double epsilon_ = 0.;
-    adj_list_t *adj_list_ptr_;
+    const adj_list_t * const adj_list_ptr_;
+
     int_mat_t k_;
     int_vec_t n_;
 
     int_vec_t deg_;
     uint_vec_t memberships_;
-    uint_vec_t types_;
+    const uint_vec_t types_;
     unsigned int num_edges_ = 0;
     double entropy_from_degree_correction_ = 0.;
     uint_mat_t adj_list_;
@@ -118,6 +121,9 @@ private:
     int_vec_t cand_n_r_;
     int_vec_t k_r_;
     int_vec_t cand_k_r_;
+
+    /// in apply_mcmc_moves
+    int_vec_t ki_;
 
     /// for single_vertex_change_tiago
     std::vector<mcmc_state_t> moves = std::vector<mcmc_state_t>(1);
@@ -134,9 +140,9 @@ private:
 
     /* Compute stuff from scratch; used for `estimate` mode */
 
-    void compute_m_from_mb(uint_vec_t &mb, bool proposal) noexcept;
-    void compute_n_r_from_mb(uint_vec_t &mb, bool proposal) noexcept;
-    void compute_k_r_from_mb(uint_vec_t &mb, bool proposal) noexcept;
+    const void compute_m_from_mb(uint_vec_t &mb, bool proposal) noexcept;
+    const void compute_n_r_from_mb(uint_vec_t &mb, bool proposal) noexcept;
+    const void compute_k_r_from_mb(uint_vec_t &mb, bool proposal) noexcept;
 
 };
 

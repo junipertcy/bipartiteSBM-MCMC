@@ -15,16 +15,14 @@ unsigned int compute_total_num_groups_from_mb(uint_vec_t mb) noexcept {
 }
 
 blockmodel_t::blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &types, unsigned int g, unsigned int KA,
-                           unsigned int KB, double epsilon, unsigned int N, adj_list_t *adj_list_ptr, bool is_bipartite) :
-        random_block_(0, g - 1), random_node_(0, N - 1) {
+                           unsigned int KB, double epsilon, unsigned int N, const adj_list_t * const adj_list_ptr, bool is_bipartite) :
+        random_block_(0, g - 1), random_node_(0, N - 1), adj_list_ptr_(adj_list_ptr), types_(types) {
     is_bipartite_ = is_bipartite;
     K_ = KA + KB;
     KA_ = KA;
     KB_ = KB;
     epsilon_ = epsilon;
     memberships_ = memberships;
-    types_ = types;
-    adj_list_ptr_ = adj_list_ptr;
     n_.resize(g, 0);
     deg_.resize(memberships.size(), 0);
     num_edges_ = 0;
@@ -364,7 +362,7 @@ std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo(std::mt19937 &en
     return states;
 }
 
-std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt19937 &engine) noexcept {
+const std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt19937 &engine) noexcept {
     double epsilon = epsilon_;
     double R_t = 0.;
     unsigned int vertex_j;
@@ -420,23 +418,23 @@ std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt19937 
     return moves;
 }
 
-int_vec_t blockmodel_t::get_k(unsigned int vertex) const noexcept { return k_[vertex]; }
+const int_vec_t* blockmodel_t::get_k(unsigned int vertex) const noexcept { return &k_[vertex]; }
 
-int_vec_t blockmodel_t::get_size_vector() const noexcept { return n_; }
+const int_vec_t* blockmodel_t::get_size_vector() const noexcept { return &n_; }
 
-int_vec_t blockmodel_t::get_degree() const noexcept { return deg_; }
+const int_vec_t* blockmodel_t::get_degree() const noexcept { return &deg_; }
 
-uint_vec_t blockmodel_t::get_memberships() const noexcept { return memberships_; }
+const uint_vec_t* blockmodel_t::get_memberships() const noexcept { return &memberships_; }
 
 double blockmodel_t::get_epsilon() const noexcept { return epsilon_; }
 
-uint_mat_t blockmodel_t::get_m() const noexcept { return m_; }
+const uint_mat_t* blockmodel_t::get_m() const noexcept { return &m_; }
 
-uint_vec_t blockmodel_t::get_m_r() const noexcept { return m_r_; }
+const uint_vec_t* blockmodel_t::get_m_r() const noexcept { return &m_r_; }
 
 
 // TODO: move it to the template?
-void blockmodel_t::compute_m_from_mb(uint_vec_t &mb, bool proposal) noexcept {
+const void blockmodel_t::compute_m_from_mb(uint_vec_t &mb, bool proposal) noexcept {
     // Note that in Riolo's setting, we have to compare two jump choices of different sizes;
     // For the newly proposed system with matrix m, we have to calculate its size every time here;
     unsigned int max_n = compute_total_num_groups_from_mb(mb);
@@ -470,7 +468,7 @@ void blockmodel_t::compute_m_from_mb(uint_vec_t &mb, bool proposal) noexcept {
     }
 }
 
-void blockmodel_t::compute_n_r_from_mb(uint_vec_t &mb, bool proposal) noexcept {
+const void blockmodel_t::compute_n_r_from_mb(uint_vec_t &mb, bool proposal) noexcept {
     // if proposal == true, modify cand_*_ contents; otherwise, modify *_ contents.
     unsigned int max_n = compute_total_num_groups_from_mb(mb);
     if (proposal) {
@@ -502,13 +500,13 @@ unsigned int blockmodel_t::get_KB() const noexcept { return KB_; }
 
 unsigned int blockmodel_t::get_nsize_B() const noexcept { return nsize_B_; }
 
-void blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t> moves) noexcept {
+void blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t> &moves) noexcept {
     for (auto const &mv: moves) {
-        int_vec_t ki = get_k(mv.vertex);
-        for (unsigned int i = 0; i < ki.size(); ++i) {
-            if (ki[i] != 0) {
-                m_[mv.source][i] -= ki[i];
-                m_[mv.target][i] += ki[i];
+        ki_ = *get_k(mv.vertex);
+        for (unsigned int i = 0; i < ki_.size(); ++i) {
+            if (ki_[i] != 0) {
+                m_[mv.source][i] -= ki_[i];
+                m_[mv.target][i] += ki_[i];
                 m_[i][mv.source] = m_[mv.source][i];
                 m_[i][mv.target] = m_[mv.target][i];
             }
@@ -630,7 +628,7 @@ void blockmodel_t::compute_m_r() noexcept {
     }
 }
 
-void blockmodel_t::compute_k_r_from_mb(uint_vec_t &mb, bool proposal) noexcept {
+const void blockmodel_t::compute_k_r_from_mb(uint_vec_t &mb, bool proposal) noexcept {
     unsigned int max_n = compute_total_num_groups_from_mb(mb);
     if (proposal) {
         cand_k_r_.assign(max_n, 0);

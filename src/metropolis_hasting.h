@@ -38,7 +38,7 @@ public:
     virtual std::vector<mcmc_state_t> sample_proposal_distribution(
             blockmodel_t &blockmodel,
             std::mt19937 &engine
-    ) noexcept { return std::vector<mcmc_state_t>(); }  // bogus virtual implementation
+    ) const noexcept { return std::vector<mcmc_state_t>(1); }  // bogus virtual implementation
 
     virtual double transition_ratio(
             const blockmodel_t &blockmodel,
@@ -82,8 +82,9 @@ public:
 /* Inherited classes with specific definitions */
 class mh_tiago : public metropolis_hasting {
 public:
+    mh_tiago() {;}
     std::vector<mcmc_state_t>
-    sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept override;
+    sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) const noexcept override;
 
     double transition_ratio(const blockmodel_t &blockmodel,
                             const std::vector<mcmc_state_t> &moves) noexcept override;
@@ -102,13 +103,13 @@ private:
     uint_mat_t m1;
     uint_vec_t m1_r;
 
-    std::vector<int>::iterator ki_;
-    std::vector<unsigned int>::iterator m0_ri;
-    std::vector<unsigned int>::iterator m0_si;
-    std::vector<unsigned int>::iterator m0_r_i;
-    std::vector<unsigned int>::iterator m1_r_i;
-    std::vector<unsigned int>::iterator m1_ri;
-    std::vector<unsigned int>::iterator m1_si;
+    std::vector<int>::const_iterator ki_;
+    std::vector<unsigned int>::const_iterator m0_ri;
+    std::vector<unsigned int>::const_iterator m0_si;
+    std::vector<unsigned int>::const_iterator m0_r_i;
+    std::vector<unsigned int>::const_iterator m1_r_i;
+    std::vector<unsigned int>::const_iterator m1_ri;
+    std::vector<unsigned int>::const_iterator m1_si;
 
 
 };
@@ -116,7 +117,7 @@ private:
 class mh_riolo : public metropolis_hasting {
 public:
     std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t &blockmodel,
-                                                           std::mt19937 &engine) noexcept override;
+                                                           std::mt19937 &engine) const noexcept override;
 
     double transition_ratio_est(blockmodel_t &blockmodel, std::vector<mcmc_state_t> &moves) noexcept override;
 };
@@ -125,7 +126,7 @@ class mh_riolo_uni : public metropolis_hasting {
 public:
 
     std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t &blockmodel,
-                                                           std::mt19937 &engine) noexcept override;
+                                                           std::mt19937 &engine) const noexcept override;
 
     double transition_ratio_est(blockmodel_t &blockmodel, std::vector<mcmc_state_t> &moves) noexcept override;
 };

@@ -347,7 +347,7 @@ int main(int argc, char const *argv[]) {
     // Graph structure
     edge_list_t edge_list;
     load_edge_list(edge_list, edge_list_path);
-    adj_list_t adj_list = edge_to_adj(edge_list, N);
+    const adj_list_t adj_list = edge_to_adj(edge_list, N);
     edge_list.clear();
 
     // blockmodel
@@ -358,7 +358,7 @@ int main(int argc, char const *argv[]) {
     if (randomize) {
         blockmodel.shuffle_bisbm(engine, NA, NB);
     }
-    uint_mat_t m = blockmodel.get_m();
+    uint_mat_t m = *blockmodel.get_m();
 
     // Bind proper Metropolis-Hasting algorithm
     // We have three modes: marginalizing, estimating, and annealing
@@ -442,7 +442,7 @@ int main(int argc, char const *argv[]) {
             rate = algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, sampling_steps,
                                      steps_await, engine);
         }
-        output_vec<uint_vec_t>(blockmodel.get_memberships(), std::cout);
+        output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
         std::clog << "acceptance ratio " << rate << "\n";
     } else if (estimate && !maximize) {  // estimate
         algorithm->estimate(blockmodel, sampling_frequency, sampling_steps, engine);

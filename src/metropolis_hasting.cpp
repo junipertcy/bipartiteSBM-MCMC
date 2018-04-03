@@ -81,7 +81,7 @@ double metropolis_hasting::marginalize(blockmodel_t &blockmodel,
     for (unsigned int t = 0; t < sampling_frequency * num_samples; ++t) {
         if (t % sampling_frequency == 0) {
             // Sample the blockmodel
-            uint_vec_t memberships = blockmodel.get_memberships();
+            uint_vec_t memberships = *blockmodel.get_memberships();
 #if OUTPUT_HISTORY == 1 // compile time output
             output_vec<uint_vec_t>(memberships, std::cout);
 #endif
@@ -111,7 +111,7 @@ double metropolis_hasting::anneal(
     entropy_max_ = 0;
     for (unsigned int t = 0; t < duration; ++t) {
 #if OUTPUT_HISTORY == 1  // compile time output
-        output_vec<uint_vec_t>(blockmodel.get_memberships(), std::cout);
+        output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
 #endif
         double _entropy_max = entropy_max_;
         double _entropy_min = entropy_min_;
@@ -142,9 +142,9 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
     unsigned int t_1000 = sampling_frequency * num_samples - 1000;  // stdout the last 1000 steps
 
     if (blockmodel.get_is_bipartite()) {
-        log_idl_ = blockmodel.get_int_data_likelihood_from_mb_bi(blockmodel.get_memberships(), false);
+        log_idl_ = blockmodel.get_int_data_likelihood_from_mb_bi(*blockmodel.get_memberships(), false);
     } else {
-        log_idl_ = blockmodel.get_int_data_likelihood_from_mb_uni(blockmodel.get_memberships(), false);
+        log_idl_ = blockmodel.get_int_data_likelihood_from_mb_uni(*blockmodel.get_memberships(), false);
     }
 
     // Sampling
@@ -154,14 +154,14 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
             if (t >= t_1000) {
 #if OUTPUT_HISTORY == 1 // compile time output
                 if (blockmodel.get_is_bipartite()) {
-                    std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.compute_log_posterior_from_mb_bi(blockmodel.get_memberships());
-                    uint_vec_t mb_ = blockmodel.get_memberships();
+                    std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.compute_log_posterior_from_mb_bi(*blockmodel.get_memberships());
+                    uint_vec_t mb_ = *blockmodel.get_memberships();
                     for (auto const &i: mb_) std::cout << "," << i;
                     std::cout << "\n";
-                  //  std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.get_log_posterior_from_mb(blockmodel.get_memberships()) << "\n";
+                  //  std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.get_log_posterior_from_mb(*blockmodel.get_memberships()) << "\n";
                 } else {
-                    std::cout << t << "," << blockmodel.get_K() << "," << blockmodel.get_log_posterior_from_mb_uni(blockmodel.get_memberships());
-                    uint_vec_t mb_ = blockmodel.get_memberships();
+                    std::cout << t << "," << blockmodel.get_K() << "," << blockmodel.get_log_posterior_from_mb_uni(*blockmodel.get_memberships());
+                    uint_vec_t mb_ = *blockmodel.get_memberships();
                     for (auto const &i: mb_) std::cout << "," << i;
                     std::cout << "\n";
                 }
@@ -181,7 +181,7 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /* Implementation for the single vertex change (SBM) */
 std::vector<mcmc_state_t> mh_tiago::sample_proposal_distribution(blockmodel_t &blockmodel,
-                                                                 std::mt19937 &engine) noexcept {
+                                                                 std::mt19937 &engine) const noexcept {
     return blockmodel.single_vertex_change_tiago(engine);
 }
 
@@ -192,13 +192,13 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
     unsigned int s = moves[0].target;
     double epsilon = blockmodel.get_epsilon();
 
-    ki = blockmodel.get_k(v);
-    deg = blockmodel.get_degree();
-    n = blockmodel.get_size_vector();
+    ki = *blockmodel.get_k(v);
+    deg = *blockmodel.get_degree();
+    n = *blockmodel.get_size_vector();
 
-    m0 = blockmodel.get_m();
+    m0 = *blockmodel.get_m();
 
-    m0_r = blockmodel.get_m_r();
+    m0_r = *blockmodel.get_m_r();
 
     m1 = m0;
     m1_r = m0_r;
@@ -290,7 +290,7 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
     return a;
 }
 
-std::vector<mcmc_state_t> mh_riolo_uni::sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept {
+std::vector<mcmc_state_t> mh_riolo_uni::sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) const noexcept {
     return blockmodel.mcmc_state_change_riolo_uni(engine);
 }
 
@@ -308,7 +308,7 @@ double mh_riolo_uni::transition_ratio_est(blockmodel_t &blockmodel, std::vector<
 }
 
 std::vector<mcmc_state_t>
-mh_riolo::sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) noexcept {
+mh_riolo::sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) const noexcept {
     return blockmodel.mcmc_state_change_riolo(engine);
 }
 
