@@ -90,8 +90,6 @@ public:
 
     void sync_internal_states_est() noexcept;
 
-
-
 private:
     /// State variable
     bool is_bipartite_ = true;
@@ -123,7 +121,6 @@ private:
     int_vec_t cand_k_r_;
     int which_to_move_;
 
-
     /// in apply_mcmc_moves
     int_vec_t ki_;
 
@@ -133,6 +130,11 @@ private:
     unsigned int proposal_t_;
     int proposal_membership_;
     unsigned int K;
+
+    /// for single_vertex_change_tiago and apply_mcmc_moves
+    unsigned int __vertex__ = 0;
+    unsigned int __source__ = 0;
+    unsigned int __target__ = 0;
 
     std::vector<mcmc_state_t> moves = std::vector<mcmc_state_t>(1);
 

@@ -2,6 +2,7 @@
 #include "blockmodel.h"
 #include "graph_utilities.h"  // for the is_disjoint function
 #include <boost/math/special_functions/gamma.hpp>
+#include "output_functions.h"
 
 using namespace std;
 
@@ -368,50 +369,54 @@ const std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt
 
     if (KA_ == 1 && KB_ == 1) {
         // return trivial move
-        moves[0].vertex = unsigned(random_node_(engine));  // TODO: it's a hot fix
-        while (adj_list_[moves[0].vertex].empty()) {
-            moves[0].vertex = unsigned(random_node_(engine));
+        __vertex__ = unsigned(random_node_(engine));  // TODO: it's a hot fix
+        while (adj_list_[__vertex__].empty()) {
+            __vertex__ = unsigned(random_node_(engine));
         }
-        moves[0].source = memberships_[moves[0].vertex];
-        moves[0].target = moves[0].source;
+        __source__ = memberships_[__vertex__];
+        __target__ = __source__;
         return moves;
     }
 
     //TODO: improve this block
     K = 1;
     while (K == 1) {
-        moves[0].vertex = unsigned(random_node_(engine));   // TODO: it's a hot fix
-        while (adj_list_[moves[0].vertex].empty()) {
-            moves[0].vertex = unsigned(random_node_(engine));
+        __vertex__ = unsigned(random_node_(engine));   // TODO: it's a hot fix
+        while (adj_list_[__vertex__].empty()) {
+            __vertex__ = unsigned(random_node_(engine));
         }
-        if (types_[moves[0].vertex] == 0) {
+        if (types_[__vertex__] == 0) {
             K = KA_;
-        } else if (types_[moves[0].vertex] == 1) {
+        } else if (types_[__vertex__] == 1) {
             K = KB_;
         }
     }
-    moves[0].source = memberships_[moves[0].vertex];
-    moves[0].target = moves[0].source;
+    __source__ = memberships_[__vertex__];
+    __target__ = __source__;
 
-    while (moves[0].source == moves[0].target) {
+    while (__source__ == __target__) {
         // Here, instead of naively move to adjacent blocks, we follow Tiago Peixoto's approach (PRE 89, 012804 [2014])
-        which_to_move_ = (int) (random_real(engine) * adj_list_[moves[0].vertex].size());
-        vertex_j_ = adj_list_[moves[0].vertex][which_to_move_];
+        which_to_move_ = (int) (random_real(engine) * adj_list_[__vertex__].size());
+        vertex_j_ = adj_list_[__vertex__][which_to_move_];
         proposal_t_ = memberships_[vertex_j_];
-        if (types_[moves[0].vertex] == 0) {
+        if (types_[__vertex__] == 0) {
             proposal_membership_ = int(random_real(engine) * KA_);
             R_t_ = epsilon_ * (KA_) / (m_r_[proposal_t_] + epsilon_ * (KA_));
-        } else if (types_[moves[0].vertex] == 1) {
+        } else if (types_[__vertex__] == 1) {
             proposal_membership_ = int(random_real(engine) * KB_) + KA_;
             R_t_ = epsilon_ * (KB_) / (m_r_[proposal_t_] + epsilon_ * (KB_));
         }
         if (random_real(engine) < R_t_) {
-            moves[0].target = unsigned(proposal_membership_);
+            __target__ = unsigned(proposal_membership_);
         } else {
             std::discrete_distribution<> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
-            moves[0].target = unsigned(d(gen));
+            __target__ = unsigned(d(gen));
         }
     }
+
+    moves[0].source = __source__;
+    moves[0].target = __target__;
+    moves[0].vertex = __vertex__;
     return moves;
 }
 
@@ -439,27 +444,17 @@ const void blockmodel_t::compute_m_from_mb(uint_vec_t &mb, bool proposal) noexce
     if (proposal) {
         cand_m_.assign(max_n, uint_vec_t(max_n, 0));
         for (unsigned int vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
-            for (auto nb = adj_list_ptr_->at(vertex).begin(); nb != adj_list_ptr_->at(vertex).end(); ++nb) {
-                ++cand_m_[mb[vertex]][mb[*nb]];
-            }
-        }
-        for (unsigned int r = 0; r < max_n; ++r) {
-            for (unsigned int s = 0; s < max_n; ++s) {
-                cand_m_[r][s] /= 2;  // edges are counted twice (the adj_list is symmetric)
-                cand_m_[r][s] = cand_m_[s][r];  // symmetrize m matrix.
+            __vertex__ = mb[vertex];
+            for (auto const& nb: adj_list_ptr_->at(vertex)) {
+                ++cand_m_[__vertex__][mb[nb]];
             }
         }
     } else {
         m_.assign(max_n, uint_vec_t(max_n, 0));
         for (unsigned int vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
-            for (auto nb = adj_list_ptr_->at(vertex).begin(); nb != adj_list_ptr_->at(vertex).end(); ++nb) {
-                ++m_[mb[vertex]][mb[*nb]];
-            }
-        }
-        for (unsigned int r = 0; r < max_n; ++r) {
-            for (unsigned int s = 0; s < max_n; ++s) {
-                m_[r][s] /= 2;  // edges are counted twice (the adj_list is symmetric)
-                m_[r][s] = m_[s][r];  // symmetrize m matrix.
+            __vertex__ = mb[vertex];
+            for (auto const& nb: adj_list_ptr_->at(vertex)){
+                ++m_[__vertex__][mb[nb]];
             }
         }
     }
@@ -499,28 +494,31 @@ unsigned int blockmodel_t::get_nsize_B() const noexcept { return nsize_B_; }
 
 void blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t> &moves) noexcept {
     for (auto const &mv: moves) {
-        ki_ = *get_k(mv.vertex);
+        __source__ = mv.source;
+        __target__ = mv.target;
+        __vertex__ = mv.vertex;
+
+        ki_ = *get_k(__vertex__);
         for (unsigned int i = 0; i < ki_.size(); ++i) {
             if (ki_[i] != 0) {
-                m_[mv.source][i] -= ki_[i];
-                m_[mv.target][i] += ki_[i];
-                m_[i][mv.source] = m_[mv.source][i];
-                m_[i][mv.target] = m_[mv.target][i];
+                m_[__source__][i] -= ki_[i];
+                m_[__target__][i] += ki_[i];
+                m_[i][__source__] = m_[__source__][i];
+                m_[i][__target__] = m_[__target__][i];
             }
         }
-        m_r_[mv.source] -= deg_[mv.vertex];
-        m_r_[mv.target] += deg_[mv.vertex];
+        m_r_[__source__] -= deg_[__vertex__];
+        m_r_[__target__] += deg_[__vertex__];
         // Change block degrees and block sizes
-        for (auto neighbour = adj_list_ptr_->at(mv.vertex).begin();
-             neighbour != adj_list_ptr_->at(mv.vertex).end();
-             ++neighbour) {
-            --k_[*neighbour][mv.source];
-            ++k_[*neighbour][mv.target];
+        for (auto const& neighbour: adj_list_ptr_->at(__vertex__)) {
+            --k_[neighbour][__source__];
+            ++k_[neighbour][__target__];
         }
-        --n_[mv.source];
-        ++n_[mv.target];
+
+        --n_[__source__];
+        ++n_[__target__];
         // Set new memberships
-        memberships_[mv.vertex] = mv.target;
+        memberships_[__vertex__] = __target__;
     }
 }
 
@@ -599,14 +597,9 @@ void blockmodel_t::compute_m() noexcept {
         m_[i].resize(get_g(), 0);
     }
     for (unsigned int vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
-        for (auto nb = adj_list_ptr_->at(vertex).begin(); nb != adj_list_ptr_->at(vertex).end(); ++nb) {
-            ++m_[memberships_[vertex]][memberships_[*nb]];
-        }
-    }
-    for (unsigned int r = 0; r < get_g(); ++r) {
-        for (unsigned int s = 0; s < get_g(); ++s) {
-            m_[r][s] /= 2;  // edges are counted twice (the adj_list is symmetric)
-            m_[r][s] = m_[s][r];  // symmetrize m matrix.
+        __vertex__ = memberships_[vertex];
+        for (auto const& nb: adj_list_ptr_->at(vertex)) {
+            ++m_[__vertex__][memberships_[nb]];
         }
     }
 

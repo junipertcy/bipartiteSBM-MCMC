@@ -20,19 +20,28 @@ double constant_schedule(unsigned int t, float_vec_t cooling_schedule_kwargs) no
 double abrupt_cool_schedule(unsigned int t, float_vec_t cooling_schedule_kwargs) noexcept;
 
 class metropolis_hasting {
+
 protected:
     std::uniform_real_distribution<> random_real;
+    double cand_log_idl_ = 0.;  // for `estimate` mode
+    double log_idl_ = 0.;  // for `estimate` mode
+    bool is_last_state_rejected_ = true;  // for `estimate` mode
+    double entropy_min_ = 0.;
+    double entropy_max_ = 0.;  // for automatic detection to stop the algorithm after T successive MCMC sweeps occurred
+    double accu_r_ = 0.;  // for Tiago Peixoto's smart MCMC
+
+private:
+    /// for marginalize
+    uint_vec_t memberships_;
+    std::vector<mcmc_state_t> moves_;
+    std::vector<mcmc_state_t> states_;
+
+    bool step_for_estimate(blockmodel_t &blockmodel,
+                           std::mt19937 &engine) noexcept;
 
 public:
     // Ctor
     metropolis_hasting() : random_real(0, 1) { ; }
-
-    bool is_last_state_rejected_ = true;  // for `estimate` mode
-    double log_idl_ = 0.;  // for `estimate` mode
-    double cand_log_idl_ = 0.;  // for `estimate` mode
-    double accu_r_ = 0.;  // for Tiago Peixoto's smart MCMC
-    double entropy_min_ = 0.;
-    double entropy_max_ = 0.;  // for automatic detection to stop the algorithm after T successive MCMC sweeps occurred
 
     // Virtual methods
     virtual std::vector<mcmc_state_t> sample_proposal_distribution(
@@ -54,9 +63,6 @@ public:
     bool step(blockmodel_t &blockmodel,
               double temperature,
               std::mt19937 &engine) noexcept;
-
-    bool step_for_estimate(blockmodel_t &blockmodel,
-                           std::mt19937 &engine) noexcept;
 
     double marginalize(blockmodel_t &blockmodel,
                        uint_mat_t &marginal_distribution,
@@ -125,8 +131,6 @@ private:
     std::vector<unsigned int>::const_iterator m1_r_i;
     std::vector<unsigned int>::const_iterator m1_ri;
     std::vector<unsigned int>::const_iterator m1_si;
-
-
 };
 
 class mh_riolo : public metropolis_hasting {

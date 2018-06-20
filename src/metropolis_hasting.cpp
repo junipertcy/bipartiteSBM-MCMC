@@ -40,10 +40,10 @@ double abrupt_cool_schedule(unsigned int t, float_vec_t cooling_schedule_kwargs)
 bool metropolis_hasting::step(blockmodel_t &blockmodel,
                               double temperature,
                               std::mt19937 &engine) noexcept {
-    std::vector<mcmc_state_t> moves = sample_proposal_distribution(blockmodel, engine);
-    double a = std::pow(transition_ratio(blockmodel, moves), 1 / temperature) * accu_r_;
+    moves_ = sample_proposal_distribution(blockmodel, engine);
+    double a = std::pow(transition_ratio(blockmodel, moves_), 1 / temperature) * accu_r_;
     if (random_real(engine) < a) {
-        blockmodel.apply_mcmc_moves(moves);
+        blockmodel.apply_mcmc_moves(moves_);
         return true;
     }
     return false;
@@ -51,13 +51,13 @@ bool metropolis_hasting::step(blockmodel_t &blockmodel,
 
 bool metropolis_hasting::step_for_estimate(blockmodel_t &blockmodel,
                                            std::mt19937 &engine) noexcept {
-    std::vector<mcmc_state_t> states = sample_proposal_distribution(blockmodel, engine);
-    double a = transition_ratio_est(blockmodel, states);
+    states_ = sample_proposal_distribution(blockmodel, engine);
+    double a = transition_ratio_est(blockmodel, states_);
     if (random_real(engine) < a) {
         if (blockmodel.get_is_bipartite()) {
-            blockmodel.apply_mcmc_states(states);
+            blockmodel.apply_mcmc_states(states_);
         } else {
-            blockmodel.apply_mcmc_states_u(states);
+            blockmodel.apply_mcmc_states_u(states_);
         }
         is_last_state_rejected_ = false;
         return true;
@@ -78,16 +78,18 @@ double metropolis_hasting::marginalize(blockmodel_t &blockmodel,
         step(blockmodel, 1.0, engine);
     }
     // Sampling
+    memberships_.clear();
+    memberships_.resize(blockmodel.get_g(), 0);
     for (unsigned int t = 0; t < sampling_frequency * num_samples; ++t) {
         if (t % sampling_frequency == 0) {
             // Sample the blockmodel
-            uint_vec_t memberships = *blockmodel.get_memberships();
+            memberships_ = *blockmodel.get_memberships();
 #if OUTPUT_HISTORY == 1 // compile time output
-            output_vec<uint_vec_t>(memberships, std::cout);
+            output_vec<uint_vec_t>(memberships_, std::cout);
 #endif
             const unsigned int n = blockmodel.get_N();
             for (unsigned int i = 0; i < n; ++i) {
-                marginal_distribution[i][memberships[i]] += 1;
+                marginal_distribution[i][memberships_[i]] += 1;
             }
         }
         if (step(blockmodel, 1.0, engine)) {
@@ -127,7 +129,7 @@ double metropolis_hasting::anneal(
         }
         if (u == steps_await) {
             std::clog << "algorithm stops after: " << t << " steps. \n";
-            t = duration;  // TODO: check -- if acceptance rate even meaningful in annealing mode?
+            t = duration;  // TODO: check -- if acceptance rate is even meaningful in annealing mode?
             return double(accepted_steps) / double(t);
         }
     }
@@ -148,6 +150,8 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
     }
 
     // Sampling
+    memberships_.clear();
+    memberships_.resize(blockmodel.get_KA() + blockmodel.get_KB(), 0);
     for (unsigned int t = 0; t < sampling_frequency * num_samples; ++t) {
         if (t % sampling_frequency == 0) {
             // Sample the blockmodel
@@ -155,14 +159,14 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
 #if OUTPUT_HISTORY == 1 // compile time output
                 if (blockmodel.get_is_bipartite()) {
                     std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.compute_log_posterior_from_mb_bi(*blockmodel.get_memberships());
-                    uint_vec_t mb_ = *blockmodel.get_memberships();
-                    for (auto const &i: mb_) std::cout << "," << i;
+                    memberships_ = *blockmodel.get_memberships();
+                    for (auto const &i: memberships_) std::cout << "," << i;
                     std::cout << "\n";
                   //  std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.get_log_posterior_from_mb(*blockmodel.get_memberships()) << "\n";
                 } else {
                     std::cout << t << "," << blockmodel.get_K() << "," << blockmodel.get_log_posterior_from_mb_uni(*blockmodel.get_memberships());
-                    uint_vec_t mb_ = *blockmodel.get_memberships();
-                    for (auto const &i: mb_) std::cout << "," << i;
+                    memberships_ = *blockmodel.get_memberships();
+                    for (auto const &i: memberships_) std::cout << "," << i;
                     std::cout << "\n";
                 }
                 //output_vec<uint_vec_t>(memberships, std::cout)
