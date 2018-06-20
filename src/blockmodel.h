@@ -8,7 +8,7 @@
 #include <vector>
 #include "types.h"
 
-unsigned int compute_total_num_groups_from_mb(uint_vec_t mb) noexcept;
+const unsigned int compute_total_num_groups_from_mb(uint_vec_t &mb) noexcept;
 
 
 class blockmodel_t {
@@ -121,11 +121,19 @@ private:
     int_vec_t cand_n_r_;
     int_vec_t k_r_;
     int_vec_t cand_k_r_;
+    int which_to_move_;
+
 
     /// in apply_mcmc_moves
     int_vec_t ki_;
 
     /// for single_vertex_change_tiago
+    double R_t_;
+    unsigned int vertex_j_;
+    unsigned int proposal_t_;
+    int proposal_membership_;
+    unsigned int K;
+
     std::vector<mcmc_state_t> moves = std::vector<mcmc_state_t>(1);
 
     /// Internal distribution. Generator must be passed as a service

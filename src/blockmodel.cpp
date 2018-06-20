@@ -5,7 +5,7 @@
 
 using namespace std;
 
-unsigned int compute_total_num_groups_from_mb(uint_vec_t mb) noexcept {
+const unsigned int compute_total_num_groups_from_mb(uint_vec_t &mb) noexcept {
     unsigned int cand_K_ = 0;
     for (auto const &_mb: mb) {
         if (_mb > cand_K_) cand_K_ = _mb;
@@ -363,11 +363,8 @@ std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo(std::mt19937 &en
 }
 
 const std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt19937 &engine) noexcept {
-    double epsilon = epsilon_;
-    double R_t = 0.;
-    unsigned int vertex_j;
-    unsigned int proposal_t;
-    int proposal_membership = 0;
+    R_t_ = 0.;
+    proposal_membership_ = 0;
 
     if (KA_ == 1 && KB_ == 1) {
         // return trivial move
@@ -381,7 +378,7 @@ const std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt
     }
 
     //TODO: improve this block
-    unsigned int K = 1;
+    K = 1;
     while (K == 1) {
         moves[0].vertex = unsigned(random_node_(engine));   // TODO: it's a hot fix
         while (adj_list_[moves[0].vertex].empty()) {
@@ -398,20 +395,20 @@ const std::vector<mcmc_state_t> blockmodel_t::single_vertex_change_tiago(std::mt
 
     while (moves[0].source == moves[0].target) {
         // Here, instead of naively move to adjacent blocks, we follow Tiago Peixoto's approach (PRE 89, 012804 [2014])
-        auto which_to_move = (int) (random_real(engine) * adj_list_[moves[0].vertex].size());
-        vertex_j = adj_list_[moves[0].vertex][which_to_move];
-        proposal_t = memberships_[vertex_j];
+        which_to_move_ = (int) (random_real(engine) * adj_list_[moves[0].vertex].size());
+        vertex_j_ = adj_list_[moves[0].vertex][which_to_move_];
+        proposal_t_ = memberships_[vertex_j_];
         if (types_[moves[0].vertex] == 0) {
-            proposal_membership = int(random_real(engine) * KA_);
-            R_t = epsilon * (KA_) / (m_r_[proposal_t] + epsilon * (KA_));
+            proposal_membership_ = int(random_real(engine) * KA_);
+            R_t_ = epsilon_ * (KA_) / (m_r_[proposal_t_] + epsilon_ * (KA_));
         } else if (types_[moves[0].vertex] == 1) {
-            proposal_membership = int(random_real(engine) * KB_) + KA_;
-            R_t = epsilon * (KB_) / (m_r_[proposal_t] + epsilon * (KB_));
+            proposal_membership_ = int(random_real(engine) * KB_) + KA_;
+            R_t_ = epsilon_ * (KB_) / (m_r_[proposal_t_] + epsilon_ * (KB_));
         }
-        if (random_real(engine) < R_t) {
-            moves[0].target = unsigned(proposal_membership);
+        if (random_real(engine) < R_t_) {
+            moves[0].target = unsigned(proposal_membership_);
         } else {
-            std::discrete_distribution<> d(m_[proposal_t].begin(), m_[proposal_t].end());
+            std::discrete_distribution<> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
             moves[0].target = unsigned(d(gen));
         }
     }

@@ -91,6 +91,21 @@ public:
 
 
 private:
+    unsigned int v_;
+    unsigned int r_;
+    unsigned int s_;
+    double epsilon_;
+    double accu0_;
+    double accu1_;
+    int B_;
+    double entropy0_;
+    double entropy1_;
+    double m0_r_r_;
+    double m1_r_r_;
+    double m0_r_s_;
+    double m1_r_s_;
+    double a_;
+
     // TODO: how do we initiate values for these vectors?
     int_vec_t ki;
 

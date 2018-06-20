@@ -3,12 +3,14 @@ bin/*
 
 # logs
 src/cmake-build-debug/*
+callgrind.out.*
 
 # outputs
 *.gt
 
 # misc
 .idea/*
+sbm_inference.cbp
 
 # Created by https://www.gitignore.io/api/cmake,c++
 

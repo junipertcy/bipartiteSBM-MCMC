@@ -187,12 +187,12 @@ std::vector<mcmc_state_t> mh_tiago::sample_proposal_distribution(blockmodel_t &b
 
 double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
                                   const std::vector<mcmc_state_t> &moves) noexcept {
-    unsigned int v = moves[0].vertex;
-    unsigned int r = moves[0].source;
-    unsigned int s = moves[0].target;
-    double epsilon = blockmodel.get_epsilon();
+    v_ = moves[0].vertex;
+    r_ = moves[0].source;
+    s_ = moves[0].target;
+    epsilon_ = blockmodel.get_epsilon();
 
-    ki = *blockmodel.get_k(v);
+    ki = *blockmodel.get_k(v_);
     deg = *blockmodel.get_degree();
     n = *blockmodel.get_size_vector();
 
@@ -203,25 +203,25 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
     m1 = m0;
     m1_r = m0_r;
 
-    m1_r[r] -= deg[v];
-    m1_r[s] += deg[v];
+    m1_r[r_] -= deg[v_];
+    m1_r[s_] += deg[v_];
 
     int i = 0;
     for (auto const& _ki: ki) {
         if (_ki != 0) {
-            m1[r][i] -= _ki;
-            m1[s][i] += _ki;
+            m1[r_][i] -= _ki;
+            m1[s_][i] += _ki;
 
-            m1[i][r] = m1[r][i];
-            m1[i][s] = m1[s][i];
+            m1[i][r_] = m1[r_][i];
+            m1[i][s_] = m1[s_][i];
         }
         ++i;
     }
 
-    double accu0_ = 0.;
-    double accu1_ = 0.;
-    int B_;
-    if (r < blockmodel.get_KA()) {
+    accu0_ = 0.;
+    accu1_ = 0.;
+
+    if (r_ < blockmodel.get_KA()) {
         // If it is type-A nodes to move, then on K_A label possibilities are allowed for the node to change
         B_ = blockmodel.get_KA();
     } else {
@@ -229,13 +229,13 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
     }
 
     ki_ = ki.begin();
-    m0_si = m0[s].begin();
-    m1_ri = m1[r].begin();
+    m0_si = m0[s_].begin();
+    m1_ri = m1[r_].begin();
     m0_r_i = m0_r.begin();
     m1_r_i = m1_r.begin();
     for (auto const & _n: n ){
-        accu0_ += *ki_ * (*m0_si + epsilon) / (*m0_r_i + epsilon * B_);
-        accu1_ += *ki_ * (*m1_ri + epsilon) / (*m1_r_i + epsilon * B_);
+        accu0_ += *ki_ * (*m0_si + epsilon_) / (*m0_r_i + epsilon_ * B_);
+        accu1_ += *ki_ * (*m1_ri + epsilon_) / (*m1_r_i + epsilon_ * B_);
         ++ki_;
         ++m0_si;
         ++m1_ri;
@@ -243,33 +243,33 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
         ++m1_r_i;
     }
 
-    double entropy0 = 0.;
-    double entropy1 = 0.;
+    entropy0_ = 0.;
+    entropy1_ = 0.;
 
-    double m0_r_r = m0_r[r];
-    double m1_r_r = m1_r[r];
-    double m0_r_s = m0_r[s];
-    double m1_r_s = m1_r[s];
+    m0_r_r_ = m0_r[r_];
+    m1_r_r_ = m1_r[r_];
+    m0_r_s_ = m0_r[s_];
+    m1_r_s_ = m1_r[s_];
 
-    m0_ri = m0[r].begin();
-    m0_si = m0[s].begin();
+    m0_ri = m0[r_].begin();
+    m0_si = m0[s_].begin();
     m0_r_i = m0_r.begin();
     m1_r_i = m1_r.begin();
-    m1_ri = m1[r].begin();
-    m1_si = m1[s].begin();
+    m1_ri = m1[r_].begin();
+    m1_si = m1[s_].begin();
 
     for (auto const& i: ki) {
-        if (m0_r_r * *m0_r_i * *m0_ri != 0) {
-            entropy0 -= 1. / 1. * *m0_ri * std::log( *m0_ri / m0_r_r / *m0_r_i);
+        if (m0_r_r_ * *m0_r_i * *m0_ri != 0) {
+            entropy0_ -= 1. / 1. * *m0_ri * std::log( *m0_ri / m0_r_r_ / *m0_r_i);
         }
-        if (m1_r_r * *m1_r_i * *m1_ri != 0) {
-            entropy1 -= 1. / 1. * *m1_ri * std::log( *m1_ri / m1_r_r / *m1_r_i);
+        if (m1_r_r_ * *m1_r_i * *m1_ri != 0) {
+            entropy1_ -= 1. / 1. * *m1_ri * std::log( *m1_ri / m1_r_r_ / *m1_r_i);
         }
-        if (m0_r_s * *m0_r_i * *m0_si != 0) {
-            entropy0 -= 1. / 1. * *m0_si * std::log( *m0_si / m0_r_s / *m0_r_i);
+        if (m0_r_s_ * *m0_r_i * *m0_si != 0) {
+            entropy0_ -= 1. / 1. * *m0_si * std::log( *m0_si / m0_r_s_ / *m0_r_i);
         }
-        if (m1_r_s * *m1_r_i * *m1_si != 0) {
-            entropy1 -= 1. / 1. * *m1_si * std::log( *m1_si / m1_r_s / *m1_r_i);
+        if (m1_r_s_ * *m1_r_i * *m1_si != 0) {
+            entropy1_ -= 1. / 1. * *m1_si * std::log( *m1_si / m1_r_s_ / *m1_r_i);
         }
         ++m0_ri;
         ++m0_si;
@@ -280,14 +280,14 @@ double mh_tiago::transition_ratio(const blockmodel_t &blockmodel,
     }
 
     accu_r_ = accu1_ / accu0_;
-    if (entropy0 >= entropy_max_) {
-        entropy_max_ = entropy0;
+    if (entropy0_ >= entropy_max_) {
+        entropy_max_ = entropy0_;
     }
-    if (entropy0 <= entropy_min_) {
-        entropy_min_ = entropy0;
+    if (entropy0_ <= entropy_min_) {
+        entropy_min_ = entropy0_;
     }
-    double a = std::exp(-(entropy1 - entropy0));
-    return a;
+    a_ = std::exp(-(entropy1_ - entropy0_));
+    return a_;
 }
 
 std::vector<mcmc_state_t> mh_riolo_uni::sample_proposal_distribution(blockmodel_t &blockmodel, std::mt19937 &engine) const noexcept {
