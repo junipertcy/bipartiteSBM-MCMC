@@ -1,5 +1,5 @@
-add_executable(mcmc mcmc_main.cpp metropolis_hasting.cpp output_functions.cpp graph_utilities.cpp blockmodel.cpp)
-add_executable(mcmc_history mcmc_main.cpp metropolis_hasting.cpp output_functions.cpp graph_utilities.cpp blockmodel.cpp)
+add_executable(mcmc mcmc_main.cc metropolis_hasting.cc output_functions.cc graph_utilities.cc blockmodel.cc)
+add_executable(mcmc_history mcmc_main.cc metropolis_hasting.cc output_functions.cc graph_utilities.cc blockmodel.cc)
 
 set_target_properties(mcmc PROPERTIES COMPILE_DEFINITIONS "OUTPUT_HISTORY=0")
 set_target_properties(mcmc_history PROPERTIES COMPILE_DEFINITIONS "OUTPUT_HISTORY=1")

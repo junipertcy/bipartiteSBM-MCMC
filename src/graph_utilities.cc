@@ -1,5 +1,5 @@
 #include <iostream>
-#include "graph_utilities.h"
+#include "graph_utilities.hh"
 
 
 bool load_memberships(uint_vec_t & memberships, const std::string membership_path)

@@ -4,9 +4,9 @@
 #include <cmath>
 #include <vector>
 #include <iostream>
-#include "types.h"
-#include "blockmodel.h"
-#include "output_functions.h"
+#include "types.hh"
+#include "blockmodel.hh"
+#include "output_functions.hh"
 
 /* Cooling schedules */
 double exponential_schedule(unsigned int t, float_vec_t cooling_schedule_kwargs) noexcept;

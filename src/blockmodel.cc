@@ -1,8 +1,8 @@
 #include <iostream>
-#include "blockmodel.h"
-#include "graph_utilities.h"  // for the is_disjoint function
+#include "blockmodel.hh"
+#include "graph_utilities.hh"  // for the is_disjoint function
 #include <boost/math/special_functions/gamma.hpp>
-#include "output_functions.h"
+#include "output_functions.hh"
 
 using namespace std;
 
@@ -478,17 +478,17 @@ const void blockmodel_t::compute_n_r_from_mb(uint_vec_t &mb, bool proposal) noex
 
 bool blockmodel_t::get_is_bipartite() const noexcept { return is_bipartite_; }
 
-unsigned int blockmodel_t::get_N() const noexcept { return unsigned(int(memberships_.size())); }
+size_t blockmodel_t::get_N() const noexcept { return memberships_.size(); }
 
-unsigned int blockmodel_t::get_g() const noexcept { return unsigned(int(n_.size())); }
+size_t blockmodel_t::get_g() const noexcept { return n_.size(); }
 
-unsigned int blockmodel_t::get_K() const noexcept { return K_; }
+size_t blockmodel_t::get_K() const noexcept { return K_; }
 
-unsigned int blockmodel_t::get_KA() const noexcept { return KA_; }
+size_t blockmodel_t::get_KA() const noexcept { return KA_; }
 
 unsigned int blockmodel_t::get_nsize_A() const noexcept { return nsize_A_; }
 
-unsigned int blockmodel_t::get_KB() const noexcept { return KB_; }
+size_t blockmodel_t::get_KB() const noexcept { return KB_; }
 
 unsigned int blockmodel_t::get_nsize_B() const noexcept { return nsize_B_; }
 

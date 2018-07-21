@@ -16,12 +16,12 @@
 // Boost
 #include <boost/program_options.hpp>
 // Program headers
-#include "types.h"
-#include "blockmodel.h"
-#include "output_functions.h"
-#include "metropolis_hasting.h"
-#include "graph_utilities.h"
-#include "config.h"
+#include "types.hh"
+#include "blockmodel.hh"
+#include "output_functions.hh"
+#include "metropolis_hasting.hh"
+#include "graph_utilities.hh"
+#include "config.hh"
 
 namespace po = boost::program_options;
 

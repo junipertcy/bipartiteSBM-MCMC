@@ -6,7 +6,7 @@
 #include <utility>
 #include <algorithm> // std::shuffle
 #include <vector>
-#include "types.h"
+#include "types.hh"
 
 const unsigned int compute_total_num_groups_from_mb(uint_vec_t &mb) noexcept;
 
@@ -44,17 +44,17 @@ public:
 
     bool get_is_bipartite() const noexcept;
 
-    unsigned int get_N() const noexcept;
+    size_t get_N() const noexcept;
 
-    unsigned int get_g() const noexcept;
+    size_t get_g() const noexcept;
 
     double get_epsilon() const noexcept;
 
-    unsigned int get_K() const noexcept;
+    size_t get_K() const noexcept;
 
-    unsigned int get_KA() const noexcept;
+    size_t get_KA() const noexcept;
 
-    unsigned int get_KB() const noexcept;
+    size_t get_KB() const noexcept;
 
     double get_log_factorial(int number) const noexcept;
 

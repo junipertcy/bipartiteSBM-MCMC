@@ -1,4 +1,4 @@
-#include "metropolis_hasting.h"
+#include "metropolis_hasting.hh"
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Non class methods

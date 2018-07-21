@@ -1,4 +1,4 @@
-#include "output_functions.h"
+#include "output_functions.hh"
 
 void output_edge_list(const edge_list_t & edge_list, std::ostream & stream)
 {

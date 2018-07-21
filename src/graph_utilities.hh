@@ -5,7 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <math.h>
-#include "types.h"
+#include "types.hh"
 
 /* Load beliefs of memberships of each node. Returns true on sucess. */
 bool load_memberships(uint_vec_t & memberships, const std::string membership_path);

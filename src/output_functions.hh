@@ -2,7 +2,7 @@
 #define OUTPUT_FUNCTIONS_H
 
 #include <iostream>
-#include "types.h"
+#include "types.hh"
 
 template<typename T>
 void output_mat(T mat, std::ostream & stream=std::clog) 
