@@ -1,5 +1,5 @@
-#ifndef BLOCKMODEL_H
-#define BLOCKMODEL_H
+#ifndef BLOCKMODEL_HH
+#define BLOCKMODEL_HH
 
 
 #include <random>
@@ -8,7 +8,7 @@
 #include <vector>
 #include "types.hh"
 
-const unsigned int compute_total_num_groups_from_mb(uint_vec_t &mb) noexcept;
+const size_t compute_total_num_groups_from_mb(uint_vec_t &mb) noexcept;
 
 
 class blockmodel_t {
@@ -18,23 +18,84 @@ protected:
     std::mt19937 gen{rd()};
 
 public:
-    // Ctor
-    blockmodel_t(adj_list_t *adj_list_ptr, const uint_vec_t &types) : random_real(0, 1), adj_list_ptr_(adj_list_ptr), types_(types) { ; }
-
-    blockmodel_t(const uint_vec_t &memberships, const uint_vec_t &types, unsigned int g, unsigned int KA,
-                 unsigned int KB, double epsilon, unsigned int N, const adj_list_t * const adj_list_ptr, bool is_bipartite);
+    /** Default constructor */
+    blockmodel_t(uint_vec_t& memberships, const uint_vec_t &types, size_t g, size_t KA,
+                 size_t KB, double epsilon, const adj_list_t* adj_list_ptr, bool is_bipartite);
 
     std::vector<mcmc_state_t> mcmc_state_change_riolo_uni(std::mt19937 &engine) noexcept;
 
     std::vector<mcmc_state_t> mcmc_state_change_riolo(std::mt19937 &engine) noexcept;
 
-    const std::vector<mcmc_state_t> single_vertex_change_tiago(std::mt19937 &engine) noexcept;
+    template<class RNG>
+    inline auto single_vertex_change_tiago(RNG&& engine) noexcept {
+        R_t_ = 0.;
+        proposal_membership_ = 0;
 
-    const int_vec_t* get_k(unsigned int vertex) const noexcept;
+        if (KA_ == 1 && KB_ == 1) {
+            // return trivial move
+            __vertex__ = random_node_(engine);  // TODO: it's a hot fix
+
+            while (adj_list_[__vertex__].empty()) {
+                __vertex__ = random_node_(engine);
+            }
+            __source__ = memberships_[__vertex__];
+            __target__ = __source__;
+            return moves;
+        }
+
+        __source__ = 0;
+        __target__ = 0;
+
+        while (__source__ == __target__) {
+            K = 0;
+            while (K == 0) {
+                __vertex__ = random_node_(engine);   // TODO: it's a hot fix
+                while (adj_list_[__vertex__].empty()) {
+                    __vertex__ = random_node_(engine);
+                }
+                if (types_[__vertex__] == 0) {
+                    K = KA_;
+                } else {
+                    K = KB_;
+                }
+            }
+            __source__ = memberships_[__vertex__];
+
+            // Here, instead of naively move to adjacent blocks, we follow Tiago Peixoto's approach (PRE 89, 012804 [2014])
+            which_to_move_ = size_t(random_real(engine) * adj_list_[__vertex__].size());
+            vertex_j_ = adj_list_[__vertex__][which_to_move_];
+            proposal_t_ = memberships_[vertex_j_];
+
+            if (types_[__vertex__] == 0) {
+                proposal_membership_ = size_t(random_real(engine) * KA_);
+                R_t_ = epsilon_ * (KA_) / (m_r_[proposal_t_] + epsilon_ * (KA_));
+            } else {
+                proposal_membership_ = size_t(random_real(engine) * KB_) + size_t(KA_);
+                R_t_ = epsilon_ * (KB_) / (m_r_[proposal_t_] + epsilon_ * (KB_));
+            }
+
+            if (random_real(engine) < R_t_) {
+                __target__ = proposal_membership_;
+            } else {
+                std::discrete_distribution<size_t> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
+                __target__ = d(gen);
+            }
+        }
+
+        moves[0].source = __source__;
+        moves[0].target = __target__;
+        moves[0].vertex = __vertex__;
+        return moves;
+    }
+
+
+    const int_vec_t* get_k(size_t vertex) const noexcept;
 
     const int_vec_t* get_size_vector() const noexcept;
 
     const int_vec_t* get_degree() const noexcept;
+
+    const int get_degree(size_t vertex) const noexcept;
 
     const uint_vec_t* get_memberships() const noexcept;
 
@@ -58,17 +119,17 @@ public:
 
     double get_log_factorial(int number) const noexcept;
 
-    unsigned int get_nsize_A() const noexcept;
+    size_t get_nsize_A() const noexcept;
 
-    unsigned int get_nsize_B() const noexcept;
+    size_t get_nsize_B() const noexcept;
 
-    void apply_mcmc_moves(std::vector<mcmc_state_t> &moves) noexcept;
+    void apply_mcmc_moves(std::vector<mcmc_state_t>&& moves) noexcept;
 
     void apply_mcmc_states_u(std::vector<mcmc_state_t> states) noexcept;  // for uni-partite SBM
 
     void apply_mcmc_states(std::vector<mcmc_state_t> states) noexcept;
 
-    void shuffle_bisbm(std::mt19937 &engine, unsigned int NA, unsigned int NB) noexcept;
+    void shuffle_bisbm(std::mt19937 &engine, size_t NA, size_t NB) noexcept;
 
     double get_int_data_likelihood_from_mb_uni(uint_vec_t mb, bool proposal) noexcept;
 
@@ -80,11 +141,11 @@ public:
 
     uint_vec_t get_types() const noexcept;
 
-    double get_log_single_type_prior(uint_vec_t mb, unsigned int type) noexcept;
+    double get_log_single_type_prior(uint_vec_t mb, size_t type) noexcept;
 
     double compute_entropy_from_m_mr(uint_mat_t m, uint_vec_t m_r) const noexcept;
 
-    unsigned int get_num_edges() const noexcept;
+    size_t get_num_edges() const noexcept;
 
     double get_entropy_from_degree_correction() const noexcept;
 
@@ -93,11 +154,11 @@ public:
 private:
     /// State variable
     bool is_bipartite_ = true;
-    unsigned int K_ = 0;
-    unsigned int KA_ = 0;
-    unsigned int nsize_A_ = 0;
-    unsigned int KB_ = 0;
-    unsigned int nsize_B_ = 0;
+    size_t K_ = 0;
+    size_t KA_ = 0;
+    size_t nsize_A_ = 0;
+    size_t KB_ = 0;
+    size_t nsize_B_ = 0;
     double epsilon_ = 0.;
     const adj_list_t * const adj_list_ptr_;
 
@@ -105,11 +166,14 @@ private:
     int_vec_t n_;
 
     int_vec_t deg_;
+    std::vector< std::vector<size_t> > adj_list_;
+    size_t num_edges_ = 0;
+
     uint_vec_t memberships_;
     const uint_vec_t types_;
-    unsigned int num_edges_ = 0;
+
     double entropy_from_degree_correction_ = 0.;
-    uint_mat_t adj_list_;
+
     uint_mat_t m_;
     uint_vec_t m_r_;
 
@@ -119,28 +183,28 @@ private:
     int_vec_t cand_n_r_;
     int_vec_t k_r_;
     int_vec_t cand_k_r_;
-    int which_to_move_;
+    size_t which_to_move_;
 
     /// in apply_mcmc_moves
     int_vec_t ki_;
 
     /// for single_vertex_change_tiago
     double R_t_;
-    unsigned int vertex_j_;
-    unsigned int proposal_t_;
-    int proposal_membership_;
-    unsigned int K;
+    size_t vertex_j_;
+    size_t proposal_t_;
+    size_t proposal_membership_;
+    size_t K;
 
     /// for single_vertex_change_tiago and apply_mcmc_moves
-    unsigned int __vertex__ = 0;
-    unsigned int __source__ = 0;
-    unsigned int __target__ = 0;
+    size_t __vertex__ = 0;
+    size_t __source__ = 0;
+    size_t __target__ = 0;
 
     std::vector<mcmc_state_t> moves = std::vector<mcmc_state_t>(1);
 
     /// Internal distribution. Generator must be passed as a service
-    std::uniform_int_distribution<> random_block_;
-    std::uniform_int_distribution<> random_node_;
+    std::uniform_int_distribution<size_t> random_block_;
+    std::uniform_int_distribution<size_t> random_node_;
 
     /// Private methods
     /* Compute stuff from scratch. */

@@ -2,13 +2,13 @@
 #include "graph_utilities.hh"
 
 
-bool load_memberships(uint_vec_t & memberships, const std::string membership_path)
+bool load_memberships(uint_vec_t& memberships, const std::string membership_path)
 {
     memberships.clear();
     std::ifstream beliefs_file(membership_path.c_str());
     if (!beliefs_file.is_open()) return false;
     std::string line_buffer;
-    unsigned int membership;
+    size_t membership;
     while (getline(beliefs_file, line_buffer))
     {
         std::stringstream linestream(line_buffer);
@@ -25,7 +25,7 @@ bool load_edge_list(edge_list_t & edge_list, const std::string edge_list_path)
     std::ifstream edge_list_file(edge_list_path.c_str());
     if (!edge_list_file.is_open()) return false;
     std::string line_buffer;
-    unsigned int node_a, node_b;
+    size_t node_a, node_b;
     while (getline(edge_list_file, line_buffer))
     {
         std::stringstream linestream(line_buffer);
@@ -37,7 +37,7 @@ bool load_edge_list(edge_list_t & edge_list, const std::string edge_list_path)
     return true;
 }
 
-adj_list_t edge_to_adj(const edge_list_t & edge_list, unsigned int num_vertices) {
+adj_list_t edge_to_adj(const edge_list_t & edge_list, size_t num_vertices) {
     adj_list_t adj_list(num_vertices);
     for (auto edge = edge_list.begin(); edge != edge_list.end(); ++edge)
     {

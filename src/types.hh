@@ -1,13 +1,13 @@
-#ifndef TYPES_H
-#define TYPES_H
+#ifndef TYPES_HH
+#define TYPES_HH
 
 #include <vector>
 #include <set>
 #include <utility>
 
-using edge_t = std::pair<unsigned int, unsigned int>;
+using edge_t = std::pair<size_t, size_t>;
 using edge_list_t = std::vector<edge_t>;
-using neighbourhood_t = std::set<unsigned int>;
+using neighbourhood_t = std::set<size_t>;
 using adj_list_t = std::vector<neighbourhood_t>;
 
 
@@ -20,9 +20,9 @@ using float_mat_t = std::vector< std::vector<float> >;
 
 using mcmc_move_t = struct mcmc_move_t
 {
-    unsigned int vertex;
-    unsigned int source;
-    unsigned int target;
+    size_t vertex;
+    size_t source;
+    size_t target;
 };
 
 

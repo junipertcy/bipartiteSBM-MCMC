@@ -28,7 +28,7 @@ function(cxx_feature_check FILE)
   string(TOUPPER "HAVE_${VAR}" FEATURE)
   message("-- Performing Test ${FEATURE}")
   try_run(RUN_${FEATURE} COMPILE_${FEATURE}
-          ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/cmake_tests/${FILE}.cpp)
+          ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/cmake_tests/${FILE}.cc)
   if(RUN_${FEATURE} EQUAL 0)
     message("-- Performing Test ${FEATURE} -- success")
     set(HAVE_${VAR} 1 PARENT_SCOPE)

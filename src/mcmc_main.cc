@@ -28,26 +28,26 @@ namespace po = boost::program_options;
 
 int main(int argc, char const *argv[]) {
     /* ~~~~~ Program options ~~~~~~~*/
-    unsigned int KA;
-    unsigned int KB;
-    unsigned int NA;
-    unsigned int NB;
+    size_t KA;
+    size_t KB;
+    size_t NA;
+    size_t NB;
     std::string edge_list_path;
     std::string membership_path;
     uint_vec_t n;
     uint_vec_t y;
     uint_vec_t z;
-    unsigned int burn_in;
-    unsigned int sampling_steps;
-    unsigned int sampling_frequency;
-    unsigned int steps_await;
+    size_t burn_in;
+    size_t sampling_steps;
+    size_t sampling_frequency;
+    size_t steps_await;
     bool randomize = false;
     bool maximize = false;
     bool estimate = false;
     bool uni = false;  // used for experimental comparison
     std::string cooling_schedule;
     float_vec_t cooling_schedule_kwargs(2, 0);
-    unsigned int seed = 0;
+    size_t seed = 0;
     double epsilon;
 
     bool is_bipartite = true;
@@ -59,10 +59,10 @@ int main(int argc, char const *argv[]) {
             ("membership_path", po::value<std::string>(&membership_path), "Path to membership file.")
             ("n,n", po::value<uint_vec_t>(&n)->multitoken(), "Block sizes vector.\n")
             ("types,y", po::value<uint_vec_t>(&y)->multitoken(), "Block types vector. (when -v is on)\n")
-            ("burn_in,b", po::value<unsigned int>(&burn_in)->default_value(1000), "Burn-in time.")
-            ("sampling_steps,t", po::value<unsigned int>(&sampling_steps)->default_value(1000),
+            ("burn_in,b", po::value<size_t>(&burn_in)->default_value(1000), "Burn-in time.")
+            ("sampling_steps,t", po::value<size_t>(&sampling_steps)->default_value(1000),
              "Number of sampling steps in marginalize mode. Length of the simulated annealing process.")
-            ("sampling_frequency,f", po::value<unsigned int>(&sampling_frequency)->default_value(10),
+            ("sampling_frequency,f", po::value<size_t>(&sampling_frequency)->default_value(10),
              "Number of step between each sample in marginalize mode. Unused in likelihood maximization mode.")
             ("bisbm_partition,z", po::value<uint_vec_t>(&z)->multitoken(), "bipartite number of blocks to be inferred.")
             ("maximize,m", "Maximize likelihood instead of marginalizing.")
@@ -81,13 +81,13 @@ int main(int argc, char const *argv[]) {
              "Logarithmic: c (rate of decline)\n"\
              "             d (delay > 1)\n"\
              "Constant: T (temperature > 0)")
-            ("steps_await,x", po::value<unsigned int>(&steps_await)->default_value(1000),
+            ("steps_await,x", po::value<size_t>(&steps_await)->default_value(1000),
              "Stop the algorithm after x successive sweeps occurred and both the max/min entropy values did not change.")
             ("epsilon,E", po::value<double>(&epsilon)->default_value(1.),
              "The parameter epsilon for faster vertex proposal moves (in Tiago Peixoto's prescription).")
             ("randomize,r",
              "Randomize initial block state.")
-            ("seed,d", po::value<unsigned int>(&seed),
+            ("seed,d", po::value<size_t>(&seed),
              "Seed of the pseudo random number generator (Mersenne-twister 19937). A random seed is used if seed is not specified.")
             ("help,h", "Produce this help message.");
 
@@ -227,7 +227,7 @@ int main(int argc, char const *argv[]) {
     }
     if (var_map.count("seed") == 0) {
         // seeding based on the clock
-        seed = (unsigned int) std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        seed = (size_t) std::chrono::high_resolution_clock::now().time_since_epoch().count();
     }
     /* ~~~~~ Setup objects ~~~~~~~*/
     std::mt19937 engine(seed);
@@ -247,13 +247,13 @@ int main(int argc, char const *argv[]) {
                 return 1;
             }
             // memberships from block sizes
-            unsigned int accu = 0;
+            size_t accu = 0;
             for (auto const &it: n) accu += it;
             memberships_init.resize(accu, 0);
 
             unsigned shift = 0;
-            for (unsigned int r = 0; r < n.size(); ++r) {
-                for (unsigned int i = 0; i < n[r]; ++i) {
+            for (size_t r = 0; r < n.size(); ++r) {
+                for (size_t i = 0; i < n[r]; ++i) {
                     memberships_init[shift + i] = r;
                 }
                 shift += n[r];
@@ -267,7 +267,7 @@ int main(int argc, char const *argv[]) {
             z.resize(2, 0);
             unsigned int max_n_ka = 0;
             unsigned int max_n_kb = 0;
-            for (unsigned int mb_ = 0; mb_ < memberships_init.size(); ++mb_) {
+            for (size_t mb_ = 0; mb_ < memberships_init.size(); ++mb_) {
                 if (mb_ < y[0]) {
                     if (memberships_init[mb_] > max_n_ka) {
                         max_n_ka = memberships_init[mb_];
@@ -292,12 +292,12 @@ int main(int argc, char const *argv[]) {
             std::cout << "number of partitions is required (-z flag)\n";
             return 1;
         }
-        unsigned int accu = 0;
+        size_t accu = 0;
         for (auto const &it: n) accu += it;
         memberships_init.resize(accu, 0);
         unsigned shift = 0;
-        for (unsigned int r = 0; r < n.size(); ++r) {
-            for (unsigned int i = 0; i < n[r]; ++i) {
+        for (size_t r = 0; r < n.size(); ++r) {
+            for (size_t i = 0; i < n[r]; ++i) {
                 memberships_init[shift + i] = r;
             }
             shift += n[r];
@@ -320,14 +320,14 @@ int main(int argc, char const *argv[]) {
     KA = z[0];
     KB = z[1];
 
-    unsigned int accu = 0;
+    size_t accu = 0;
     for (auto const &it: n) accu += it;
     types_init.resize(accu, 0);
 
     unsigned shift = 0;
-    for (unsigned int r = 0; r < y.size(); ++r) {
-        for (unsigned int i = 0; i < y[r]; ++i) {
-            types_init[shift + i] = r;
+    for (size_t r = 0; r < y.size(); ++r) {
+        for (size_t i = 0; i < y[r]; ++i) {
+            types_init[shift + i] = unsigned(int(r));
         }
         shift += y[r];
     }
@@ -339,8 +339,8 @@ int main(int argc, char const *argv[]) {
         return 1;
     }
     // number of vertices
-    unsigned int N = 0;
-    for (unsigned int i = 0; i < g; ++i) {
+    size_t N = 0;
+    for (size_t i = 0; i < g; ++i) {
         N += n[i];
     }
 
@@ -351,8 +351,7 @@ int main(int argc, char const *argv[]) {
     edge_list.clear();
 
     // blockmodel
-    blockmodel_t blockmodel(memberships_init, types_init, g, KA, KB, epsilon, unsigned(int(adj_list.size())),
-                            &adj_list, is_bipartite);
+    blockmodel_t blockmodel(memberships_init, types_init, g, KA, KB, epsilon, &adj_list, is_bipartite);
     memberships_init.clear();
     types_init.clear();
     if (randomize) {
@@ -448,11 +447,11 @@ int main(int argc, char const *argv[]) {
         algorithm->estimate(blockmodel, sampling_frequency, sampling_steps, engine);
     } else  // marginalize
     {
-        rate = algorithm->marginalize(blockmodel, marginal, burn_in, sampling_frequency, sampling_steps, engine);
+        rate = algorithm->marginalize(std::move(blockmodel), marginal, burn_in, sampling_frequency, sampling_steps, engine);
         uint_vec_t memberships(blockmodel.get_N(), 0);
-        for (unsigned int i = 0; i < blockmodel.get_N(); ++i) {
-            unsigned int max = 0;
-            for (unsigned int r = 0; r < g; ++r) {
+        for (size_t i = 0; i < blockmodel.get_N(); ++i) {
+            size_t max = 0;
+            for (size_t r = 0; r < g; ++r) {
                 if (marginal[i][r] > max) {
                     memberships[i] = r;
                     max = marginal[i][r];
