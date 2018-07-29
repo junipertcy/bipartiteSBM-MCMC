@@ -444,17 +444,26 @@ size_t blockmodel_t::get_KB() const noexcept { return KB_; }
 
 size_t blockmodel_t::get_nsize_B() const noexcept { return nsize_B_; }
 
-void blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>&& moves) noexcept {
+bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>&& moves) noexcept {
     for (auto const &mv: moves) {
         __source__ = mv.source;
         __target__ = mv.target;
         __vertex__ = mv.vertex;
 
-        ki_ = *get_k(__vertex__);
-        for (size_t i = 0; i < ki_.size(); ++i) {
-            if (ki_[i] != 0) {
-                m_[__source__][i] -= ki_[i];
-                m_[__target__][i] += ki_[i];
+        --n_[__source__];
+        if (n_[__source__] == 0) {  // No move that makes an empty group will be allowed
+            ++n_[__source__];
+            return false;
+        }
+        ++n_[__target__];
+
+        ki_ = get_k(__vertex__);
+        size_t ki_size = ki_->size();
+        for (size_t i = 0; i < ki_size; ++i) {
+            int ki_at_i = ki_->at(i);
+            if (ki_at_i != 0) {
+                m_[__source__][i] -= ki_at_i;
+                m_[__target__][i] += ki_at_i;
                 m_[i][__source__] = m_[__source__][i];
                 m_[i][__target__] = m_[__target__][i];
             }
@@ -466,12 +475,10 @@ void blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>&& moves) noexcept 
             --k_[neighbour][__source__];
             ++k_[neighbour][__target__];
         }
-
-        --n_[__source__];
-        ++n_[__target__];
         // Set new memberships
         memberships_[__vertex__] = unsigned(int(__target__));
     }
+    return true;
 }
 
 void blockmodel_t::apply_mcmc_states_u(std::vector<mcmc_state_t> states) noexcept {

@@ -30,22 +30,8 @@ public:
     inline auto single_vertex_change_tiago(RNG&& engine) noexcept {
         R_t_ = 0.;
         proposal_membership_ = 0;
-
-        if (KA_ == 1 && KB_ == 1) {
-            // return trivial move
-            __vertex__ = random_node_(engine);  // TODO: it's a hot fix
-
-            while (adj_list_[__vertex__].empty()) {
-                __vertex__ = random_node_(engine);
-            }
-            __source__ = memberships_[__vertex__];
-            __target__ = __source__;
-            return moves;
-        }
-
         __source__ = 0;
         __target__ = 0;
-
         while (__source__ == __target__) {
             K = 0;
             while (K == 0) {
@@ -53,10 +39,23 @@ public:
                 while (adj_list_[__vertex__].empty()) {
                     __vertex__ = random_node_(engine);
                 }
+                if (KA_ == 1 && KB_ == 1) {
+                    __source__ = memberships_[__vertex__];
+                    __target__ = __source__;
+                    return moves;
+                }
                 if (types_[__vertex__] == 0) {
                     K = KA_;
+                    if (K == 1) {
+                        __vertex__ += nsize_A_;
+                        K = KB_;
+                    }
                 } else {
                     K = KB_;
+                    if (K == 1) {
+                        __vertex__ -= nsize_A_;
+                        K = KA_;
+                    }
                 }
             }
             __source__ = memberships_[__vertex__];
@@ -123,7 +122,7 @@ public:
 
     size_t get_nsize_B() const noexcept;
 
-    void apply_mcmc_moves(std::vector<mcmc_state_t>&& moves) noexcept;
+    bool apply_mcmc_moves(std::vector<mcmc_state_t>&& moves) noexcept;
 
     void apply_mcmc_states_u(std::vector<mcmc_state_t> states) noexcept;  // for uni-partite SBM
 
@@ -186,7 +185,7 @@ private:
     size_t which_to_move_;
 
     /// in apply_mcmc_moves
-    int_vec_t ki_;
+    const int_vec_t* ki_;
 
     /// for single_vertex_change_tiago
     double R_t_;

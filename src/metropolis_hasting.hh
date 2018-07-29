@@ -91,9 +91,9 @@ private:
     size_t B_{0};
 
     // TODO: how do we initiate values for these vectors? (or, should we?)
-    const int_vec_t * ki;
-    const uint_mat_t * m0;
-    const uint_vec_t * padded_m0;
+    const int_vec_t* ki;
+    const uint_mat_t* m0;
+    const uint_vec_t* padded_m0;
 
     std::vector<unsigned int>::const_iterator citer_m0_r;
     std::vector<unsigned int>::const_iterator citer_m0_s;

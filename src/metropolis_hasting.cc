@@ -52,8 +52,7 @@ inline bool metropolis_hasting::step(blockmodel_t&& blockmodel,
         a = std::pow(exp_minus_diff_entropy , 1. / temperature) * accu_r_;
     }
     if (random_real(engine) < a) {
-        blockmodel.apply_mcmc_moves(std::move(moves_));
-        return true;
+        return blockmodel.apply_mcmc_moves(std::move(moves_));
     }
     return false;
 }
