@@ -358,7 +358,6 @@ int main(int argc, char const *argv[]) {
         blockmodel.shuffle_bisbm(engine, NA, NB);
     }
     uint_mat_t m = *blockmodel.get_m();
-
     // Bind proper Metropolis-Hasting algorithm
     // We have three modes: marginalizing, estimating, and annealing
     //

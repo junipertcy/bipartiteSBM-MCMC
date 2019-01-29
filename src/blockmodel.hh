@@ -61,12 +61,17 @@ public:
                 }
             }
             __source__ = memberships_[__vertex__];
-
             // Here, instead of naively move to adjacent blocks, we follow Tiago Peixoto's approach (PRE 89, 012804 [2014])
             which_to_move_ = size_t(random_real(engine) * adj_list_[__vertex__].size());
+
+            // if the vtx-to-change-group has 0 degree; pause.
+            if (which_to_move_ == 0 && adj_list_[__vertex__].empty()) {
+                __target__ = __source__;
+                break;
+            }
+
             vertex_j_ = adj_list_[__vertex__][which_to_move_];
             proposal_t_ = memberships_[vertex_j_];
-
             if (types_[__vertex__] == 0) {
                 proposal_membership_ = size_t(random_real(engine) * KA_);
                 R_t_ = epsilon_ * (KA_) / (m_r_[proposal_t_] + epsilon_ * (KA_));
@@ -81,11 +86,10 @@ public:
                 std::discrete_distribution<size_t> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
                 __target__ = d(gen);
             }
-            if (counter >= 100) {
+            if (counter >= 10) {
                 break;
             }
         }
-
         moves[0].source = __source__;
         moves[0].target = __target__;
         moves[0].vertex = __vertex__;
