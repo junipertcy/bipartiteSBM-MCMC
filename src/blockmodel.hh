@@ -19,12 +19,12 @@ protected:
 
 public:
     /** Default constructor */
-    blockmodel_t(uint_vec_t& memberships, const uint_vec_t &types, size_t g, size_t KA,
+    blockmodel_t(const uint_vec_t& memberships, uint_vec_t types, size_t g, size_t KA,
                  size_t KB, double epsilon, const adj_list_t* adj_list_ptr, bool is_bipartite);
 
-    std::vector<mcmc_state_t> mcmc_state_change_riolo_uni(std::mt19937 &engine) noexcept;
+    std::vector<mcmc_state_t> mcmc_state_change_riolo_uni(std::mt19937& engine) noexcept;
 
-    std::vector<mcmc_state_t> mcmc_state_change_riolo(std::mt19937 &engine) noexcept;
+    std::vector<mcmc_state_t> mcmc_state_change_riolo(std::mt19937& engine) noexcept;
 
     template<class RNG>
     inline auto single_vertex_change_tiago(RNG&& engine) noexcept {
@@ -32,10 +32,12 @@ public:
         proposal_membership_ = 0;
         __source__ = 0;
         __target__ = 0;
+        unsigned int counter{0};
         while (__source__ == __target__) {
+            ++counter;
             K = 0;
             while (K == 0) {
-                __vertex__ = random_node_(engine);   // TODO: it's a hot fix
+                __vertex__ = random_node_(engine);
                 while (adj_list_[__vertex__].empty()) {
                     __vertex__ = random_node_(engine);
                 }
@@ -78,6 +80,9 @@ public:
             } else {
                 std::discrete_distribution<size_t> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
                 __target__ = d(gen);
+            }
+            if (counter >= 100) {
+                break;
             }
         }
 

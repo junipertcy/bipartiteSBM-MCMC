@@ -41,9 +41,9 @@ double abrupt_cool_schedule(size_t t, float_vec_t cooling_schedule_kwargs) noexc
 inline bool metropolis_hasting::step(blockmodel_t&& blockmodel,
                               double temperature,
                               std::mt19937& engine) noexcept {
-    moves_ = sample_proposal_distribution(std::move(blockmodel), std::move(engine));
+    moves_ = sample_proposal_distribution(std::move(blockmodel), engine);
     double a = 0.;
-    double exp_minus_diff_entropy = transition_ratio(std::move(blockmodel), moves_);
+    double exp_minus_diff_entropy = transition_ratio(blockmodel, moves_);
     if (temperature == 0.) {
         if (exp_minus_diff_entropy >= 1.) {
             a = 1.;
@@ -59,7 +59,7 @@ inline bool metropolis_hasting::step(blockmodel_t&& blockmodel,
 
 bool metropolis_hasting::step_for_estimate(blockmodel_t &blockmodel,
                                            std::mt19937& engine) noexcept {
-    states_ = sample_proposal_distribution(std::move(blockmodel), std::move(engine));
+    states_ = sample_proposal_distribution(std::move(blockmodel), engine);
     double a = transition_ratio_est(blockmodel, states_);
     if (random_real(engine) < a) {
         if (blockmodel.get_is_bipartite()) {
@@ -190,7 +190,7 @@ double metropolis_hasting::estimate(blockmodel_t &blockmodel,
 }
 
 
-inline const double metropolis_hasting::transition_ratio(blockmodel_t&& blockmodel,
+inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blockmodel,
                                      const std::vector<mcmc_state_t> &moves) noexcept {
     v_ = moves[0].vertex;
     r_ = moves[0].source;
@@ -259,12 +259,12 @@ inline const double metropolis_hasting::transition_ratio(blockmodel_t&& blockmod
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /* Implementation for the single vertex change (SBM) */
 std::vector<mcmc_state_t> mh_tiago::sample_proposal_distribution(blockmodel_t&& blockmodel,
-                                                                 std::mt19937&& engine) const noexcept {
+                                                                 std::mt19937& engine) const noexcept {
     return blockmodel.single_vertex_change_tiago(engine);
 }
 
 
-std::vector<mcmc_state_t> mh_riolo_uni::sample_proposal_distribution(blockmodel_t&& blockmodel, std::mt19937&& engine) const noexcept {
+std::vector<mcmc_state_t> mh_riolo_uni::sample_proposal_distribution(blockmodel_t&& blockmodel, std::mt19937& engine) const noexcept {
     return blockmodel.mcmc_state_change_riolo_uni(engine);
 }
 
@@ -282,7 +282,7 @@ double mh_riolo_uni::transition_ratio_est(blockmodel_t &blockmodel, std::vector<
 }
 
 std::vector<mcmc_state_t>
-mh_riolo::sample_proposal_distribution(blockmodel_t&& blockmodel, std::mt19937&& engine) const noexcept {
+mh_riolo::sample_proposal_distribution(blockmodel_t&& blockmodel, std::mt19937& engine) const noexcept {
     return blockmodel.mcmc_state_change_riolo(engine);
 }
 

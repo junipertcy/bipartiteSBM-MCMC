@@ -17,9 +17,10 @@ const size_t compute_total_num_groups_from_mb(uint_vec_t &mb) noexcept {
 }
 
 /** Default constructor */
-blockmodel_t::blockmodel_t(uint_vec_t& memberships, const uint_vec_t& types, size_t g, size_t KA,
-                           size_t KB, double epsilon, const adj_list_t* adj_list_ptr, bool is_bipartite) :
-        random_block_(0, g - 1), random_node_(0, (*adj_list_ptr).size() - 1), adj_list_ptr_(adj_list_ptr), types_(types) {
+blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size_t g, size_t KA,
+                           size_t KB, double epsilon, const adj_list_t *adj_list_ptr, bool is_bipartite) :
+        random_block_(0, g - 1), random_node_(0, (*adj_list_ptr).size() - 1), adj_list_ptr_(adj_list_ptr),
+        types_(std::move(types)) {
     is_bipartite_ = is_bipartite;
     K_ = KA + KB;
     KA_ = KA;
@@ -169,7 +170,8 @@ std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo(std::mt19937 &en
     std::vector<mcmc_state_t> states(1);
 
     states[0].memberships.resize(memberships_.size(), 0);
-    for (auto i = 0; i < memberships_.size(); ++i) {
+    size_t memberships_size = memberships_.size();
+    for (auto i = 0; i < memberships_size; ++i) {
         states[0].memberships[i] = memberships_[i];
     }
     // decide whether to update type-a nodes or type-b nodes
@@ -370,22 +372,21 @@ std::vector<mcmc_state_t> blockmodel_t::mcmc_state_change_riolo(std::mt19937 &en
 }
 
 
-const int_vec_t* blockmodel_t::get_k(size_t vertex) const noexcept { return &k_[vertex]; }
+const int_vec_t *blockmodel_t::get_k(size_t vertex) const noexcept { return &k_[vertex]; }
 
-const int_vec_t* blockmodel_t::get_size_vector() const noexcept { return &n_; }
+const int_vec_t *blockmodel_t::get_size_vector() const noexcept { return &n_; }
 
-const int_vec_t* blockmodel_t::get_degree() const noexcept { return &deg_; }
+const int_vec_t *blockmodel_t::get_degree() const noexcept { return &deg_; }
 
-const int blockmodel_t::get_degree(size_t vertex) const noexcept {return deg_.at(vertex);}
+const int blockmodel_t::get_degree(size_t vertex) const noexcept { return deg_.at(vertex); }
 
-const uint_vec_t* blockmodel_t::get_memberships() const noexcept { return &memberships_; }
+const uint_vec_t *blockmodel_t::get_memberships() const noexcept { return &memberships_; }
 
 double blockmodel_t::get_epsilon() const noexcept { return epsilon_; }
 
-const uint_mat_t* blockmodel_t::get_m() const noexcept { return &m_; }
+const uint_mat_t *blockmodel_t::get_m() const noexcept { return &m_; }
 
-const uint_vec_t* blockmodel_t::get_m_r() const noexcept { return &m_r_; }
-
+const uint_vec_t *blockmodel_t::get_m_r() const noexcept { return &m_r_; }
 
 // TODO: move it to the template?
 inline const void blockmodel_t::compute_m_from_mb(uint_vec_t &mb, bool proposal) noexcept {
@@ -397,7 +398,7 @@ inline const void blockmodel_t::compute_m_from_mb(uint_vec_t &mb, bool proposal)
         cand_m_.assign(max_n, uint_vec_t(max_n, 0));
         for (size_t vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
             __vertex__ = mb[vertex];
-            for (auto const& nb: adj_list_ptr_->at(vertex)) {
+            for (auto const &nb: adj_list_ptr_->at(vertex)) {
                 ++cand_m_[__vertex__][mb[nb]];
             }
         }
@@ -405,7 +406,7 @@ inline const void blockmodel_t::compute_m_from_mb(uint_vec_t &mb, bool proposal)
         m_.assign(max_n, uint_vec_t(max_n, 0));
         for (size_t vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
             __vertex__ = mb[vertex];
-            for (auto const& nb: adj_list_ptr_->at(vertex)){
+            for (auto const &nb: adj_list_ptr_->at(vertex)) {
                 ++m_[__vertex__][mb[nb]];
             }
         }
@@ -444,7 +445,7 @@ size_t blockmodel_t::get_KB() const noexcept { return KB_; }
 
 size_t blockmodel_t::get_nsize_B() const noexcept { return nsize_B_; }
 
-bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>&& moves) noexcept {
+bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t> &&moves) noexcept {
     for (auto const &mv: moves) {
         __source__ = mv.source;
         __target__ = mv.target;
@@ -471,7 +472,7 @@ bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>&& moves) noexcept 
         m_r_[__source__] -= deg_[__vertex__];
         m_r_[__target__] += deg_[__vertex__];
         // Change block degrees and block sizes
-        for (auto const& neighbour: adj_list_ptr_->at(__vertex__)) {
+        for (auto const &neighbour: adj_list_ptr_->at(__vertex__)) {
             --k_[neighbour][__source__];
             ++k_[neighbour][__target__];
         }
@@ -557,7 +558,7 @@ inline void blockmodel_t::compute_m() noexcept {
     }
     for (size_t vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
         __vertex__ = memberships_[vertex];
-        for (auto const& nb: adj_list_ptr_->at(vertex)) {
+        for (auto const &nb: adj_list_ptr_->at(vertex)) {
             ++m_[__vertex__][memberships_[nb]];
         }
     }
@@ -609,16 +610,20 @@ double blockmodel_t::get_int_data_likelihood_from_mb_uni(uint_vec_t mb, bool pro
     if (proposal) {  // TODO: use pointers!
         for (auto r = 0; r < cand_n_r_.size(); ++r) {
             log_idl +=
-                    cand_k_r_[r] * safelog_fast(cand_n_r_[r]) + get_log_factorial(cand_n_r_[r] - 1) - get_log_factorial(cand_n_r_[r] + cand_k_r_[r] - 1);
-            log_idl += get_log_factorial(cand_m_[r][r]) - (cand_m_[r][r] + 1.) * safelog_fast(0.5 * p_ * cand_n_r_[r] * cand_n_r_[r] + 1);
+                    cand_k_r_[r] * safelog_fast(cand_n_r_[r]) + get_log_factorial(cand_n_r_[r] - 1) -
+                    get_log_factorial(cand_n_r_[r] + cand_k_r_[r] - 1);
+            log_idl += get_log_factorial(cand_m_[r][r]) -
+                       (cand_m_[r][r] + 1.) * safelog_fast(0.5 * p_ * cand_n_r_[r] * cand_n_r_[r] + 1);
             for (auto s = 0; s < r; ++s) {
-                log_idl += get_log_factorial(cand_m_[r][s]) - (cand_m_[r][s] + 1.) * safelog_fast(p_ * cand_n_r_[r] * cand_n_r_[s] + 1);
+                log_idl += get_log_factorial(cand_m_[r][s]) -
+                           (cand_m_[r][s] + 1.) * safelog_fast(p_ * cand_n_r_[r] * cand_n_r_[s] + 1);
             }
         }
     } else {
         for (auto r = 0; r < n_r_.size(); ++r) {
             log_idl +=
-                    k_r_[r] * safelog_fast(n_r_[r]) + get_log_factorial(n_r_[r] - 1) - get_log_factorial(n_r_[r] + k_r_[r] - 1);
+                    k_r_[r] * safelog_fast(n_r_[r]) + get_log_factorial(n_r_[r] - 1) -
+                    get_log_factorial(n_r_[r] + k_r_[r] - 1);
             log_idl += get_log_factorial(m_[r][r]) - (m_[r][r] + 1.) * safelog_fast(0.5 * p_ * n_r_[r] * n_r_[r] + 1);
             for (auto s = 0; s < r; ++s) {
                 log_idl += get_log_factorial(m_[r][s]) - (m_[r][s] + 1.) * safelog_fast(p_ * n_r_[r] * n_r_[s] + 1);
@@ -642,7 +647,8 @@ double blockmodel_t::get_int_data_likelihood_from_mb_bi(uint_vec_t mb, bool prop
                     cand_k_r_[r] * safelog_fast(cand_n_r_[r]) + get_log_factorial(cand_n_r_[r] - 1) -
                     get_log_factorial(cand_n_r_[r] + cand_k_r_[r] - 1);
             for (auto s = 0; s < r; ++s) {
-                log_idl += get_log_factorial(cand_m_[r][s]) - (cand_m_[r][s] + 1.) * safelog_fast(p_ * cand_n_r_[r] * cand_n_r_[s] + 1);
+                log_idl += get_log_factorial(cand_m_[r][s]) -
+                           (cand_m_[r][s] + 1.) * safelog_fast(p_ * cand_n_r_[r] * cand_n_r_[s] + 1);
             }
         }
     } else {
