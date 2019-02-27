@@ -29,8 +29,6 @@ protected:
     double accu_r_ = 0.;  // for Tiago Peixoto's smart MCMC
 
 private:
-    /// for marginalize
-    uint_vec_t memberships_;
     std::vector<mcmc_state_t> moves_;
 
 public:
@@ -54,16 +52,9 @@ public:
     inline const double transition_ratio(const blockmodel_t& blockmodel,
                                          const std::vector<mcmc_state_t>& moves) noexcept;
 
-    double marginalize(blockmodel_t&& blockmodel,
-                       uint_mat_t& marginal_distribution,
-                       size_t burn_in_time,
-                       size_t sampling_frequency,
-                       size_t num_samples,
-                       std::mt19937 &engine) noexcept;
-
     double anneal(blockmodel_t& blockmodel,
                   double (*cooling_schedule)(size_t, float_vec_t),
-                  float_vec_t cooling_schedule_kwargs,
+                  const float_vec_t& cooling_schedule_kwargs,
                   size_t duration,
                   size_t steps_await,
                   std::mt19937 &engine) noexcept;

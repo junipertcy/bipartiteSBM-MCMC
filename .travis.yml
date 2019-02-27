@@ -24,6 +24,4 @@ notifications:
 install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo unlink /usr/bin/g++; sudo ln -s /usr/bin/g++-5 /usr/bin/g++; fi
 script:
-  - cmake .; make; bin/mcmc_history -e dataset/southernWomen.edgelist -n 4 4 4 3 3 3 3 3 3 2 -t 1000 -y 18 14 -z 5 5 --estimate -f 10 --randomize
   - cmake .; make; bin/mcmc -e dataset/southernWomen.edgelist -n 4 4 4 3 3 3 3 3 3 2 -t 1000 -x 100 --maximize -c exponential -a 10 0.1 -y 18 14 -z 5 5 -E 0.001 --randomize
-  - cmake .; make; bin/mcmc -e dataset/southernWomen.edgelist -n 4 4 4 3 3 3 3 3 3 2 -t 1000 -x 100 -y 18 14 -z 5 5 -E 0.001

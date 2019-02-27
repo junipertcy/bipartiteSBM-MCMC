@@ -43,14 +43,10 @@ int main(int argc, char const *argv[]) {
     size_t steps_await;
     bool randomize = false;
     bool maximize = false;
-    bool uni = false;  // used for experimental comparison
     std::string cooling_schedule;
     float_vec_t cooling_schedule_kwargs(2, 0);
     size_t seed = 0;
     double epsilon;
-
-    bool is_bipartite = true;
-    bool use_mh_tiago = false;
 
     po::options_description description("Options");
     description.add_options()
@@ -110,10 +106,6 @@ int main(int argc, char const *argv[]) {
         return 1;
     }
 
-    if (var_map.count("uni") > 0) {
-        uni = true;
-        is_bipartite = false;
-    }
     if (var_map.count("maximize") > 0) {
         maximize = true;
         if (var_map.count("cooling_schedule_kwargs") == 0) {
@@ -204,7 +196,6 @@ int main(int argc, char const *argv[]) {
     }
     if (var_map.count("epsilon") > 0) {
         std::clog << "An epsilon param is assigned; we will use Tiago Peixoto's smart MCMC moves. \n";
-        use_mh_tiago = true;
     } else {
         std::cerr << "[ERROR] An epsilon param is NOT assigned; \n";
         std::cerr
@@ -296,7 +287,7 @@ int main(int argc, char const *argv[]) {
     auto g = unsigned(int(n.size()));
     uint_vec_t types_init;
 
-    // number of types (must be equal to 2; TODO: support multipartite version!)
+    // number of types (must be equal to 2)
     auto num_types = unsigned(int(y.size()));
     if (num_types != 2) {
         std::cerr << "Number of types must be equal to 2!" << "\n";
@@ -340,7 +331,7 @@ int main(int argc, char const *argv[]) {
     edge_list.clear();
 
     // blockmodel
-    blockmodel_t blockmodel(memberships_init, types_init, g, KA, KB, epsilon, &adj_list, is_bipartite);
+    blockmodel_t blockmodel(memberships_init, types_init, g, KA, KB, epsilon, &adj_list);
     memberships_init.clear();
     types_init.clear();
     if (randomize) {
@@ -348,23 +339,16 @@ int main(int argc, char const *argv[]) {
     }
     uint_mat_t m = *blockmodel.get_m();
     // Bind proper Metropolis-Hasting algorithm
-    // We have three modes: marginalizing, estimating, and annealing
-    //
-    // marginalizing: naive_mcmc and tiago_mcmc are allowed
-    // estimating: only riolo_mcmc is allowed
-    // annealing: naive_mcmc and tiago_mcmc is allowed
-
+    // Originally, we provided three modes: marginalizing, estimating, and annealing
+    // But we wanted to stay fit. Now only annealing applies.
     std::unique_ptr<metropolis_hasting> algorithm;
     if (maximize) {
         std::clog << "*** Likelihood maximization using Tiago Peixoto's MCMC algorithm ***\n";
         algorithm = std::make_unique<mh_tiago>();
     } else {
-        // marginalize
-        if (use_mh_tiago) {
-            std::clog << "*** Likelihood marginalization using Tiago Peixoto's MCMC algorithm ***\n";
-            algorithm = std::make_unique<mh_tiago>();
-        }
+        return 1; // not implemented error
     }
+
     /* ~~~~~ Logging ~~~~~~~*/
 #if LOGGING == 1
     std::clog << "edge_list_path: " << edge_list_path << "\n";
@@ -378,8 +362,6 @@ int main(int argc, char const *argv[]) {
     std::clog << "sampling_frequency: " << sampling_frequency << "\n";
     std::clog << "steps_await: " << steps_await << "\n";
     std::clog << "epsilon: " << epsilon << "\n";
-    if (maximize) { std::clog << "maximize: true\n"; }
-    else { std::clog << "maximize: false\n"; }
     if (randomize) { std::clog << "randomize: true\n"; }
     else { std::clog << "randomize: false\n"; }
 
@@ -392,11 +374,9 @@ int main(int argc, char const *argv[]) {
     for (auto const &it: z) std::clog << it << " ";
     std::clog << "\n";
 
-    if (maximize) {
-        std::clog << "cooling_schedule: " << cooling_schedule << "\n";
-        std::clog << "cooling_schedule_kwargs: ";
-        output_vec<float_vec_t>(cooling_schedule_kwargs);
-    }
+    std::clog << "cooling_schedule: " << cooling_schedule << "\n";
+    std::clog << "cooling_schedule_kwargs: ";
+    output_vec<float_vec_t>(cooling_schedule_kwargs);
     std::clog << "seed: " << seed << "\n";
 #endif
     /* ~~~~~ Actual algorithm ~~~~~~~*/
@@ -424,21 +404,6 @@ int main(int argc, char const *argv[]) {
                                      steps_await, engine);
         }
         output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
-        std::clog << "acceptance ratio " << rate << "\n";
-    }  else  // marginalize
-    {
-        rate = algorithm->marginalize(std::move(blockmodel), marginal, burn_in, sampling_frequency, sampling_steps, engine);
-        uint_vec_t memberships(blockmodel.get_N(), 0);
-        for (size_t i = 0; i < blockmodel.get_N(); ++i) {
-            size_t max = 0;
-            for (size_t r = 0; r < g; ++r) {
-                if (marginal[i][r] > max) {
-                    memberships[i] = r;
-                    max = marginal[i][r];
-                }
-            }
-        }
-        output_vec<uint_vec_t>(memberships, std::cout);
         std::clog << "acceptance ratio " << rate << "\n";
     }
     return 0;

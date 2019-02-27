@@ -9,7 +9,7 @@ using namespace std;
 
 /** Default constructor */
 blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size_t g, size_t KA,
-                           size_t KB, double epsilon, const adj_list_t *adj_list_ptr, bool is_bipartite) :
+                           size_t KB, double epsilon, const adj_list_t *adj_list_ptr) :
         random_block_(0, g - 1), random_node_(0, (*adj_list_ptr).size() - 1), adj_list_ptr_(adj_list_ptr),
         types_(std::move(types)) {
     KA_ = KA;
@@ -78,8 +78,6 @@ const uint_mat_t *blockmodel_t::get_m() const noexcept { return &m_; }
 
 const uint_vec_t *blockmodel_t::get_m_r() const noexcept { return &m_r_; }
 
-size_t blockmodel_t::get_N() const noexcept { return memberships_.size(); }
-
 size_t blockmodel_t::get_g() const noexcept { return n_.size(); }
 
 size_t blockmodel_t::get_KA() const noexcept { return KA_; }
@@ -129,8 +127,8 @@ void blockmodel_t::shuffle_bisbm(std::mt19937 &engine, size_t NA, size_t NB) noe
     compute_m_r();
 }
 
+// The 3 functions below should only execute once.
 inline void blockmodel_t::compute_k() noexcept {
-    // In principle, this function only executes once.
     k_.clear();
     k_.resize(adj_list_ptr_->size());
     for (size_t i = 0; i < adj_list_ptr_->size(); ++i) {
@@ -142,7 +140,6 @@ inline void blockmodel_t::compute_k() noexcept {
 }
 
 inline void blockmodel_t::compute_m() noexcept {
-    // In principle, this function only executes once.
     m_.clear();
     m_.resize(get_g());
     for (auto i = 0; i < get_g(); ++i) {
@@ -158,7 +155,6 @@ inline void blockmodel_t::compute_m() noexcept {
 }
 
 inline void blockmodel_t::compute_m_r() noexcept {
-    // In principle, this function only executes once.
     m_r_.clear();
     m_r_.resize(get_g(), 0);
     size_t _m_r = 0;

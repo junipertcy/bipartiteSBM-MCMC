@@ -57,41 +57,10 @@ inline bool metropolis_hasting::step(blockmodel_t&& blockmodel,
     return false;
 }
 
-double metropolis_hasting::marginalize(blockmodel_t&& blockmodel,
-                                       uint_mat_t &marginal_distribution,
-                                       size_t burn_in_time,
-                                       size_t sampling_frequency,
-                                       size_t num_samples,
-                                       std::mt19937 &engine) noexcept {
-
-    size_t accepted_steps = 0;
-    // Burn-in period
-    for (size_t t = 0; t < burn_in_time; ++t) {
-        step(std::move(blockmodel), 1.0, engine);
-    }
-    // Sampling
-    memberships_.clear();
-    memberships_.resize(blockmodel.get_g(), 0);
-    for (size_t t = 0; t < sampling_frequency * num_samples; ++t) {
-        if (t % sampling_frequency == 0) {
-            // Sample the blockmodel
-            memberships_ = *blockmodel.get_memberships();
-            const size_t n = blockmodel.get_N();
-            for (size_t i = 0; i < n; ++i) {
-                marginal_distribution[i][memberships_[i]] += 1;
-            }
-        }
-        if (step(std::move(blockmodel), 1.0, engine)) {
-            ++accepted_steps;
-        }
-    }
-    return (double) accepted_steps / ((double) sampling_frequency * num_samples);
-}
-
 double metropolis_hasting::anneal(
         blockmodel_t &blockmodel,
         double (*cooling_schedule)(size_t, float_vec_t),
-        float_vec_t cooling_schedule_kwargs,
+        const float_vec_t& cooling_schedule_kwargs,
         size_t duration,
         size_t steps_await,
         std::mt19937 &engine) noexcept {

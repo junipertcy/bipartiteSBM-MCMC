@@ -17,7 +17,7 @@ protected:
 public:
     /** Default constructor */
     blockmodel_t(const uint_vec_t& memberships, uint_vec_t types, size_t g, size_t KA,
-                 size_t KB, double epsilon, const adj_list_t* adj_list_ptr, bool is_bipartite);
+                 size_t KB, double epsilon, const adj_list_t* adj_list_ptr);
 
     template<class RNG>
     inline auto single_vertex_change_tiago(RNG&& engine) noexcept {
@@ -100,8 +100,6 @@ public:
     const uint_mat_t* get_m() const noexcept;  /* Optimizing this function (pass by ref) is extremely important!! (why?) */
 
     const uint_vec_t* get_m_r() const noexcept;
-
-    size_t get_N() const noexcept;
 
     size_t get_g() const noexcept;
 
