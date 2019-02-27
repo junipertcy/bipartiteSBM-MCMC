@@ -24,9 +24,6 @@ class metropolis_hasting {
 
 protected:
     std::uniform_real_distribution<> random_real;
-    double cand_log_idl_ = 0.;  // for `estimate` mode
-    double log_idl_ = 0.;  // for `estimate` mode
-    bool is_last_state_rejected_ = true;  // for `estimate` mode
     double entropy_min_ = 0.;
     double entropy_max_ = 0.;  // for automatic detection to stop the algorithm after T successive MCMC sweeps occurred
     double accu_r_ = 0.;  // for Tiago Peixoto's smart MCMC
@@ -35,10 +32,6 @@ private:
     /// for marginalize
     uint_vec_t memberships_;
     std::vector<mcmc_state_t> moves_;
-    std::vector<mcmc_state_t> states_;
-
-    bool step_for_estimate(blockmodel_t &blockmodel,
-                           std::mt19937 &engine) noexcept;
 
 public:
     // Ctor
@@ -52,10 +45,6 @@ public:
             std::mt19937& engine
     ) const noexcept { return std::vector<mcmc_state_t>(1); }  // bogus virtual implementation
 
-    virtual double transition_ratio_est(
-            blockmodel_t& blockmodel,
-            std::vector<mcmc_state_t>& moves
-    ) noexcept { return 0; } // bogus virtual implementation
 
     // Common methods
     inline bool step(blockmodel_t&& blockmodel,
@@ -79,11 +68,6 @@ public:
                   size_t steps_await,
                   std::mt19937 &engine) noexcept;
 
-    double estimate(blockmodel_t& blockmodel,
-                    size_t sampling_frequency,
-                    size_t num_samples,
-                    std::mt19937 &engine) noexcept;
-
 private:
     size_t v_{0};
     size_t r_{0};
@@ -106,27 +90,6 @@ class mh_tiago : public metropolis_hasting {
 public:
     std::vector<mcmc_state_t>
     sample_proposal_distribution(blockmodel_t&& blockmodel, std::mt19937& engine) const noexcept override;
-
-//    double transition_ratio(const blockmodel_t &blockmodel,
-//                            const std::vector<mcmc_state_t> &moves) noexcept override;
-
-};
-
-class mh_riolo : public metropolis_hasting {
-public:
-    std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t&& blockmodel,
-                                                           std::mt19937& engine) const noexcept override;
-
-    double transition_ratio_est(blockmodel_t &blockmodel, std::vector<mcmc_state_t> &moves) noexcept override;
-};
-
-class mh_riolo_uni : public metropolis_hasting {
-public:
-
-    std::vector<mcmc_state_t> sample_proposal_distribution(blockmodel_t&& blockmodel,
-                                                           std::mt19937& engine) const noexcept override;
-
-    double transition_ratio_est(blockmodel_t &blockmodel, std::vector<mcmc_state_t> &moves) noexcept override;
 };
 
 #endif // METROPOLIS_HASTING_H

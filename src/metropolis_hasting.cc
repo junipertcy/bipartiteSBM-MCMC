@@ -57,23 +57,6 @@ inline bool metropolis_hasting::step(blockmodel_t&& blockmodel,
     return false;
 }
 
-bool metropolis_hasting::step_for_estimate(blockmodel_t &blockmodel,
-                                           std::mt19937& engine) noexcept {
-    states_ = sample_proposal_distribution(std::move(blockmodel), engine);
-    double a = transition_ratio_est(blockmodel, states_);
-    if (random_real(engine) < a) {
-        if (blockmodel.get_is_bipartite()) {
-            blockmodel.apply_mcmc_states(states_);
-        } else {
-            blockmodel.apply_mcmc_states_u(states_);
-        }
-        is_last_state_rejected_ = false;
-        return true;
-    }
-    is_last_state_rejected_ = true;
-    return false;
-}
-
 double metropolis_hasting::marginalize(blockmodel_t&& blockmodel,
                                        uint_mat_t &marginal_distribution,
                                        size_t burn_in_time,
@@ -93,9 +76,6 @@ double metropolis_hasting::marginalize(blockmodel_t&& blockmodel,
         if (t % sampling_frequency == 0) {
             // Sample the blockmodel
             memberships_ = *blockmodel.get_memberships();
-#if OUTPUT_HISTORY == 1 // compile time output
-            output_vec<uint_vec_t>(memberships_, std::cout);
-#endif
             const size_t n = blockmodel.get_N();
             for (size_t i = 0; i < n; ++i) {
                 marginal_distribution[i][memberships_[i]] += 1;
@@ -121,9 +101,6 @@ double metropolis_hasting::anneal(
     entropy_min_ = 1000000;
     entropy_max_ = 0;
     for (size_t t = 0; t < duration; ++t) {
-#if OUTPUT_HISTORY == 1  // compile time output
-        output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
-#endif
         double _entropy_max = entropy_max_;
         double _entropy_min = entropy_min_;
 
@@ -144,51 +121,6 @@ double metropolis_hasting::anneal(
     }
     return double(accepted_steps) / double(duration);
 }
-
-double metropolis_hasting::estimate(blockmodel_t &blockmodel,
-                                    size_t sampling_frequency,
-                                    size_t num_samples,
-                                    std::mt19937 &engine) noexcept {
-    size_t accepted_steps = 0;
-    size_t t_1000 = sampling_frequency * num_samples - 1000;  // stdout the last 1000 steps
-
-    if (blockmodel.get_is_bipartite()) {
-        log_idl_ = blockmodel.get_int_data_likelihood_from_mb_bi(*blockmodel.get_memberships(), false);
-    } else {
-        log_idl_ = blockmodel.get_int_data_likelihood_from_mb_uni(*blockmodel.get_memberships(), false);
-    }
-
-    // Sampling
-    memberships_.clear();
-    memberships_.resize(blockmodel.get_KA() + blockmodel.get_KB(), 0);
-    for (size_t t = 0; t < sampling_frequency * num_samples; ++t) {
-        if (t % sampling_frequency == 0) {
-            // Sample the blockmodel
-            if (t >= t_1000) {
-#if OUTPUT_HISTORY == 1 // compile time output
-                if (blockmodel.get_is_bipartite()) {
-                    std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.compute_log_posterior_from_mb_bi(*blockmodel.get_memberships());
-                    memberships_ = *blockmodel.get_memberships();
-                    for (auto const &i: memberships_) std::cout << "," << i;
-                    std::cout << "\n";
-                  //  std::cout << t << "," << blockmodel.get_KA() << "," << blockmodel.get_KB() << "," << blockmodel.get_log_posterior_from_mb(*blockmodel.get_memberships()) << "\n";
-                } else {
-                    std::cout << t << "," << blockmodel.get_K() << "," << blockmodel.get_log_posterior_from_mb_uni(*blockmodel.get_memberships());
-                    memberships_ = *blockmodel.get_memberships();
-                    for (auto const &i: memberships_) std::cout << "," << i;
-                    std::cout << "\n";
-                }
-                //output_vec<uint_vec_t>(memberships, std::cout)
-#endif
-            }
-        }
-        if (step_for_estimate(blockmodel, engine)) {
-            ++accepted_steps;
-        }
-    }
-    return (double) accepted_steps / ((double) sampling_frequency * num_samples);
-}
-
 
 inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blockmodel,
                                      const std::vector<mcmc_state_t> &moves) noexcept {
@@ -267,40 +199,5 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
 std::vector<mcmc_state_t> mh_tiago::sample_proposal_distribution(blockmodel_t&& blockmodel,
                                                                  std::mt19937& engine) const noexcept {
     return blockmodel.single_vertex_change_tiago(engine);
-}
-
-
-std::vector<mcmc_state_t> mh_riolo_uni::sample_proposal_distribution(blockmodel_t&& blockmodel, std::mt19937& engine) const noexcept {
-    return blockmodel.mcmc_state_change_riolo_uni(engine);
-}
-
-double mh_riolo_uni::transition_ratio_est(blockmodel_t &blockmodel, std::vector<mcmc_state_t> &states) noexcept {
-    double log_idl_0 = log_idl_;
-    if (!is_last_state_rejected_) {  // candidate state accepted
-        log_idl_0 = cand_log_idl_;
-        blockmodel.sync_internal_states_est();
-
-        log_idl_ = log_idl_0;
-    }
-    double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb_uni(states[0].memberships, true);
-    cand_log_idl_ = log_idl_1;
-    return std::exp(+log_idl_1 - log_idl_0);
-}
-
-std::vector<mcmc_state_t>
-mh_riolo::sample_proposal_distribution(blockmodel_t&& blockmodel, std::mt19937& engine) const noexcept {
-    return blockmodel.mcmc_state_change_riolo(engine);
-}
-
-double mh_riolo::transition_ratio_est(blockmodel_t &blockmodel, std::vector<mcmc_state_t> &states) noexcept {
-    double log_idl_0 = log_idl_;
-    if (!is_last_state_rejected_) {  // candidate state accepted
-        log_idl_0 = cand_log_idl_;
-        blockmodel.sync_internal_states_est();
-        log_idl_ = log_idl_0;
-    }
-    double log_idl_1 = blockmodel.get_int_data_likelihood_from_mb_bi(states[0].memberships, true);
-    cand_log_idl_ = log_idl_1;
-    return std::exp(+log_idl_1 - log_idl_0);
 }
 

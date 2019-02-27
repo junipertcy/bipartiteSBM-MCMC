@@ -14,7 +14,6 @@ project(sbm_inference)
 #
 # Solution found @ http://stackoverflow.com/a/25836953/1851837.
 include(CheckCXXCompilerFlag)
-#set(CMAKE_CXX_COMPILER /usr/local/bin/clang++)
 
 CHECK_CXX_COMPILER_FLAG("-std=c++14" COMPILER_SUPPORTS_CXX14)
 

@@ -43,7 +43,6 @@ int main(int argc, char const *argv[]) {
     size_t steps_await;
     bool randomize = false;
     bool maximize = false;
-    bool estimate = false;
     bool uni = false;  // used for experimental comparison
     std::string cooling_schedule;
     float_vec_t cooling_schedule_kwargs(2, 0);
@@ -66,7 +65,6 @@ int main(int argc, char const *argv[]) {
              "Number of step between each sample in marginalize mode. Unused in likelihood maximization mode.")
             ("bisbm_partition,z", po::value<uint_vec_t>(&z)->multitoken(), "bipartite number of blocks to be inferred.")
             ("maximize,m", "Maximize likelihood instead of marginalizing.")
-            ("estimate,l", "Estimate KA and KB during marginalizing.")
             ("uni", "Experimental use; Estimate K during marginalizing – Riolo's approach.")
             ("cooling_schedule,c", po::value<std::string>(&cooling_schedule)->default_value("abrupt_cool"),
              "Cooling schedule for the simulated annealing algorithm. Options are exponential, "\
@@ -96,11 +94,7 @@ int main(int argc, char const *argv[]) {
     po::notify(var_map);
 
     if (var_map.count("help") > 0 || argc == 1) {
-#if OUTPUT_HISTORY == 0
         std::cout << "MCMC algorithms for the bipartiteSBM (final output only)\n";
-#else
-        std::cout << "MCMC algorithms for the bipartiteSBM (output intermediate states)\n";
-#endif
         std::cout << "Usage:\n"
                   << "  " + std::string(argv[0]) + " [--option_1=value] [--option_s2=value] ...\n";
         std::cout << description;
@@ -116,9 +110,6 @@ int main(int argc, char const *argv[]) {
         return 1;
     }
 
-    if (var_map.count("estimate") > 0) {
-        estimate = true;
-    }
     if (var_map.count("uni") > 0) {
         uni = true;
         is_bipartite = false;
@@ -211,16 +202,14 @@ int main(int argc, char const *argv[]) {
             }
         }
     }
-    if (var_map.count("estimate") == 0) {
-        if (var_map.count("epsilon") > 0) {
-            std::clog << "An epsilon param is assigned; we will use Tiago Peixoto's smart MCMC moves. \n";
-            use_mh_tiago = true;
-        } else {
-            std::cerr << "[ERROR] An epsilon param is NOT assigned; \n";
-            std::cerr
-                    << "to perform MCMC with naive proposals, assign a large value for the epsilon parameter (eq. -E 10000.). \n";
-            return 1;
-        }
+    if (var_map.count("epsilon") > 0) {
+        std::clog << "An epsilon param is assigned; we will use Tiago Peixoto's smart MCMC moves. \n";
+        use_mh_tiago = true;
+    } else {
+        std::cerr << "[ERROR] An epsilon param is NOT assigned; \n";
+        std::cerr
+                << "to perform MCMC with naive proposals, assign a large value for the epsilon parameter (eq. -E 10000.). \n";
+        return 1;
     }
     if (var_map.count("randomize") > 0) {
         randomize = true;
@@ -366,15 +355,9 @@ int main(int argc, char const *argv[]) {
     // annealing: naive_mcmc and tiago_mcmc is allowed
 
     std::unique_ptr<metropolis_hasting> algorithm;
-    if (maximize && !estimate) {
+    if (maximize) {
         std::clog << "*** Likelihood maximization using Tiago Peixoto's MCMC algorithm ***\n";
         algorithm = std::make_unique<mh_tiago>();
-    } else if (estimate && !maximize && uni) {  // Riolo's implementation
-        std::clog << "*** Sampling 1D posterior via Maria A. Riolos et al.'s MCMC algorithm ***\n";
-        algorithm = std::make_unique<mh_riolo_uni>();
-    } else if (estimate && !maximize) {
-        std::clog << "*** Sampling 1D posterior via Tzu-Chi Yen et al.'s MCMC algorithm ***\n";
-        algorithm = std::make_unique<mh_riolo>();
     } else {
         // marginalize
         if (use_mh_tiago) {
@@ -419,7 +402,7 @@ int main(int argc, char const *argv[]) {
     /* ~~~~~ Actual algorithm ~~~~~~~*/
     double rate = 0;
     uint_mat_t marginal(adj_list.size(), uint_vec_t(g, 0));
-    if (maximize && !estimate) {
+    if (maximize) {
         if (cooling_schedule == "exponential") {
             rate = algorithm->anneal(blockmodel, &exponential_schedule, cooling_schedule_kwargs, sampling_steps,
                                      steps_await, engine);
@@ -442,9 +425,7 @@ int main(int argc, char const *argv[]) {
         }
         output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
         std::clog << "acceptance ratio " << rate << "\n";
-    } else if (estimate && !maximize) {  // estimate
-        algorithm->estimate(blockmodel, sampling_frequency, sampling_steps, engine);
-    } else  // marginalize
+    }  else  // marginalize
     {
         rate = algorithm->marginalize(std::move(blockmodel), marginal, burn_in, sampling_frequency, sampling_steps, engine);
         uint_vec_t memberships(blockmodel.get_N(), 0);

@@ -8,9 +8,6 @@
 #include <vector>
 #include "types.hh"
 
-const size_t compute_total_num_groups_from_mb(uint_vec_t &mb) noexcept;
-
-
 class blockmodel_t {
 protected:
     std::uniform_real_distribution<> random_real;
@@ -22,10 +19,6 @@ public:
     blockmodel_t(const uint_vec_t& memberships, uint_vec_t types, size_t g, size_t KA,
                  size_t KB, double epsilon, const adj_list_t* adj_list_ptr, bool is_bipartite);
 
-    std::vector<mcmc_state_t> mcmc_state_change_riolo_uni(std::mt19937& engine) noexcept;
-
-    std::vector<mcmc_state_t> mcmc_state_change_riolo(std::mt19937& engine) noexcept;
-
     template<class RNG>
     inline auto single_vertex_change_tiago(RNG&& engine) noexcept {
         R_t_ = 0.;
@@ -36,6 +29,7 @@ public:
         while (__source__ == __target__) {
             ++counter;
             K = 0;
+
             while (K == 0) {
                 __vertex__ = random_node_(engine);
                 while (adj_list_[__vertex__].empty()) {
@@ -99,10 +93,6 @@ public:
 
     const int_vec_t* get_k(size_t vertex) const noexcept;
 
-    const int_vec_t* get_size_vector() const noexcept;
-
-    const int_vec_t* get_degree() const noexcept;
-
     const int get_degree(size_t vertex) const noexcept;
 
     const uint_vec_t* get_memberships() const noexcept;
@@ -111,58 +101,20 @@ public:
 
     const uint_vec_t* get_m_r() const noexcept;
 
-    bool get_is_bipartite() const noexcept;
-
     size_t get_N() const noexcept;
 
     size_t get_g() const noexcept;
 
     double get_epsilon() const noexcept;
 
-    size_t get_K() const noexcept;
-
     size_t get_KA() const noexcept;
-
-    size_t get_KB() const noexcept;
-
-    double get_log_factorial(int number) const noexcept;
-
-    size_t get_nsize_A() const noexcept;
-
-    size_t get_nsize_B() const noexcept;
 
     bool apply_mcmc_moves(std::vector<mcmc_state_t>&& moves) noexcept;
 
-    void apply_mcmc_states_u(std::vector<mcmc_state_t> states) noexcept;  // for uni-partite SBM
-
-    void apply_mcmc_states(std::vector<mcmc_state_t> states) noexcept;
-
     void shuffle_bisbm(std::mt19937 &engine, size_t NA, size_t NB) noexcept;
-
-    double get_int_data_likelihood_from_mb_uni(uint_vec_t mb, bool proposal) noexcept;
-
-    double get_int_data_likelihood_from_mb_bi(uint_vec_t mb, bool proposal) noexcept;
-
-    double get_log_posterior_from_mb_uni(uint_vec_t mb) noexcept;
-
-    double compute_log_posterior_from_mb_bi(uint_vec_t mb) noexcept;
-
-    uint_vec_t get_types() const noexcept;
-
-    double get_log_single_type_prior(uint_vec_t mb, size_t type) noexcept;
-
-    double compute_entropy_from_m_mr(uint_mat_t m, uint_vec_t m_r) const noexcept;
-
-    size_t get_num_edges() const noexcept;
-
-    double get_entropy_from_degree_correction() const noexcept;
-
-    void sync_internal_states_est() noexcept;
 
 private:
     /// State variable
-    bool is_bipartite_ = true;
-    size_t K_ = 0;
     size_t KA_ = 0;
     size_t nsize_A_ = 0;
     size_t KB_ = 0;
@@ -186,11 +138,6 @@ private:
     uint_vec_t m_r_;
 
     /// used for `estimate` mode
-    uint_mat_t cand_m_;
-    int_vec_t n_r_;
-    int_vec_t cand_n_r_;
-    int_vec_t k_r_;
-    int_vec_t cand_k_r_;
     size_t which_to_move_;
 
     /// in apply_mcmc_moves
@@ -219,12 +166,6 @@ private:
     void compute_k() noexcept;
     void compute_m() noexcept;  // Note: get_m and compute_m are different.
     void compute_m_r() noexcept;
-
-    /* Compute stuff from scratch; used for `estimate` mode */
-
-    const void compute_m_from_mb(uint_vec_t &mb, bool proposal) noexcept;
-    const void compute_n_r_from_mb(uint_vec_t &mb, bool proposal) noexcept;
-    const void compute_k_r_from_mb(uint_vec_t &mb, bool proposal) noexcept;
 
 };
 
