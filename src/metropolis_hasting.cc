@@ -195,6 +195,12 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
     v_ = moves[0].vertex;
     r_ = moves[0].source;
     s_ = moves[0].target;
+
+    if (r_ == s_) {
+        accu_r_ = 1.;
+        return 1.;
+    }
+
     double epsilon = blockmodel.get_epsilon();
 
     size_t KA = blockmodel.get_KA();
@@ -235,8 +241,8 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
             accu1 += _k * ((*citer_m0_r - _k) + epsilon) / (*citer_padded_m0 + epsilon * B_);  // last term, originally `*citer_padded_m1`.
             entropy0 -= *citer_m0_r * (safelog_fast(*citer_m0_r) - safelog_fast(INT_padded_m0r) - safelog_fast(*citer_padded_m0));
             entropy0 -= *citer_m0_s * (safelog_fast(*citer_m0_s) - safelog_fast(INT_padded_m0s) - safelog_fast(*citer_padded_m0));
-            entropy1 -= (*citer_m0_r - _k) * (safelog_fast((*citer_m0_r - _k)) - safelog_fast(INT_padded_m1r) - safelog_fast(*citer_padded_m0));
-            entropy1 -= (*citer_m0_s + _k) * (safelog_fast((*citer_m0_s + _k)) - safelog_fast(INT_padded_m1s) - safelog_fast(*citer_padded_m0));
+            entropy1 -= (*citer_m0_r - _k) * (safelog_fast(*citer_m0_r - _k) - safelog_fast(INT_padded_m1r) - safelog_fast(*citer_padded_m0));
+            entropy1 -= (*citer_m0_s + _k) * (safelog_fast(*citer_m0_s + _k) - safelog_fast(INT_padded_m1s) - safelog_fast(*citer_padded_m0));
         }
         ++citer_m0_s;
         ++citer_padded_m0;

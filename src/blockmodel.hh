@@ -86,7 +86,7 @@ public:
                 std::discrete_distribution<size_t> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
                 __target__ = d(gen);
             }
-            if (counter >= 10) {
+            if (counter >= 2) {
                 break;
             }
         }
