@@ -38,10 +38,10 @@ double abrupt_cool_schedule(size_t t, float_vec_t cooling_schedule_kwargs) noexc
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // metropolis_hasting class
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-inline bool metropolis_hasting::step(blockmodel_t&& blockmodel,
-                              double temperature,
-                              std::mt19937& engine) noexcept {
-    moves_ = sample_proposal_distribution(std::move(blockmodel), engine);
+inline bool metropolis_hasting::step(blockmodel_t& blockmodel, size_t vtx, double temperature,
+        std::mt19937& engine) noexcept {
+
+    moves_ = sample_proposal_distribution(std::move(blockmodel), vtx, engine);
     double a = 0.;
     double exp_minus_diff_entropy = transition_ratio(blockmodel, moves_);
     if (temperature == 0.) {
@@ -52,7 +52,7 @@ inline bool metropolis_hasting::step(blockmodel_t&& blockmodel,
         a = std::pow(exp_minus_diff_entropy , 1. / temperature) * accu_r_;
     }
     if (random_real(engine) < a) {
-        return blockmodel.apply_mcmc_moves(std::move(moves_));
+        return blockmodel.apply_mcmc_moves(moves_);
     }
     return false;
 }
@@ -65,29 +65,45 @@ double metropolis_hasting::anneal(
         size_t steps_await,
         std::mt19937 &engine) noexcept {
 
+
+    size_t num_nodes = blockmodel.get_memberships()->size();
     size_t accepted_steps = 0;
     size_t u = 0;
+
     entropy_min_ = 1000000;
     entropy_max_ = 0;
-    for (size_t t = 0; t < duration; ++t) {
-        double _entropy_max = entropy_max_;
-        double _entropy_min = entropy_min_;
 
-        if (step(std::move(blockmodel), cooling_schedule(t, cooling_schedule_kwargs), engine)) {
-            ++accepted_steps;
+    auto all_sweeps = size_t(duration / num_nodes);
+    double _entropy_max = entropy_max_;
+    double _entropy_min = entropy_min_;
+    std::vector< std::vector<size_t> >& adj_list = blockmodel.get_adj_list();
+
+    for (size_t sweep = 0; sweep < all_sweeps; ++sweep) {
+        uint_vec_t& vlist = blockmodel.get_vlist();
+        std::shuffle(vlist.begin(), vlist.end(), engine);
+        size_t current_step = num_nodes * sweep;
+        for (size_t vi = 0; vi < vlist.size(); ++vi) {
+            if (adj_list[vlist[vi]].empty()) {
+                continue;
+            }
+
+            if (step(blockmodel, vlist[vi], cooling_schedule(current_step + vi, cooling_schedule_kwargs), engine)) {
+                ++accepted_steps;
+                // TODO: check the effect of `epsilon` from the code block here
+                if (_entropy_max == entropy_max_ && _entropy_min == entropy_min_) {
+                    u += 1;
+                } else {
+                    u = 0;
+                }
+            }
         }
-        // TODO: check the effect of `epsilon` from the code block here
-        if (_entropy_max == entropy_max_ && _entropy_min == entropy_min_) {
-            u += 1;
-        } else {
-            u = 0;
-        }
-        if (u == steps_await) {
-            std::clog << "algorithm stops after: " << t << " steps. \n";
-            t = duration;  // TODO: check -- if acceptance rate is even meaningful in annealing mode?
-            return double(accepted_steps) / double(t);
+        if (u >= steps_await) {
+            std::clog << "algorithm stops after: " << sweep << " sweeps. \n";
+            sweep = all_sweeps;  // TODO: check -- if acceptance rate is even meaningful in annealing mode?
+            return double(accepted_steps) / double(sweep * num_nodes);
         }
     }
+
     return double(accepted_steps) / double(duration);
 }
 
@@ -166,7 +182,9 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /* Implementation for the single vertex change (SBM) */
 std::vector<mcmc_state_t> mh_tiago::sample_proposal_distribution(blockmodel_t&& blockmodel,
+                                                                 size_t vtx,
                                                                  std::mt19937& engine) const noexcept {
-    return blockmodel.single_vertex_change_tiago(engine);
+
+    return blockmodel.single_vertex_change_tiago(engine, vtx);
 }
 

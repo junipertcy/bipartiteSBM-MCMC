@@ -20,7 +20,7 @@ public:
                  size_t KB, double epsilon, const adj_list_t* adj_list_ptr);
 
     template<class RNG>
-    inline auto single_vertex_change_tiago(RNG&& engine) noexcept {
+    inline auto single_vertex_change_tiago(RNG& engine, size_t vtx) noexcept {  // two && or one & here???
         R_t_ = 0.;
         proposal_membership_ = 0;
         __source__ = 0;
@@ -31,14 +31,12 @@ public:
             K = 0;
 
             while (K == 0) {
-                __vertex__ = random_node_(engine);
-                while (adj_list_[__vertex__].empty()) {
-                    __vertex__ = random_node_(engine);
-                }
+                __vertex__ = vtx;
+
                 if (KA_ == 1 && KB_ == 1) {
                     __source__ = memberships_[__vertex__];
                     __target__ = __source__;
-                    return moves;
+                    return moves_;
                 }
                 if (types_[__vertex__] == 0) {
                     K = KA_;
@@ -84,10 +82,10 @@ public:
                 break;
             }
         }
-        moves[0].source = __source__;
-        moves[0].target = __target__;
-        moves[0].vertex = __vertex__;
-        return moves;
+        moves_[0].source = __source__;
+        moves_[0].target = __target__;
+        moves_[0].vertex = __vertex__;
+        return moves_;
     }
 
 
@@ -107,9 +105,13 @@ public:
 
     size_t get_KA() const noexcept;
 
-    bool apply_mcmc_moves(std::vector<mcmc_state_t>&& moves) noexcept;
+    uint_vec_t& get_vlist() noexcept;
 
-    void shuffle_bisbm(std::mt19937 &engine, size_t NA, size_t NB) noexcept;
+    std::vector< std::vector<size_t> >& get_adj_list() noexcept;
+
+    void shuffle_bisbm(std::mt19937& engine, size_t NA, size_t NB) noexcept;
+
+    bool apply_mcmc_moves(std::vector<mcmc_state_t>& moves) noexcept;
 
 private:
     /// State variable
@@ -128,6 +130,7 @@ private:
     size_t num_edges_ = 0;
 
     uint_vec_t memberships_;
+    uint_vec_t vlist_;
     const uint_vec_t types_;
 
     double entropy_from_degree_correction_ = 0.;
@@ -153,7 +156,7 @@ private:
     size_t __source__ = 0;
     size_t __target__ = 0;
 
-    std::vector<mcmc_state_t> moves = std::vector<mcmc_state_t>(1);
+    std::vector<mcmc_state_t> moves_ = std::vector<mcmc_state_t>(1);
 
     /// Internal distribution. Generator must be passed as a service
     std::uniform_int_distribution<size_t> random_block_;

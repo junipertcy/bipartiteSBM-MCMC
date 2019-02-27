@@ -40,14 +40,12 @@ public:
     // Virtual methods
     virtual std::vector<mcmc_state_t> sample_proposal_distribution(
             blockmodel_t&& blockmodel,
+            size_t vtx,
             std::mt19937& engine
     ) const noexcept { return std::vector<mcmc_state_t>(1); }  // bogus virtual implementation
 
-
     // Common methods
-    inline bool step(blockmodel_t&& blockmodel,
-              double temperature,
-              std::mt19937 &engine) noexcept;
+    inline bool step(blockmodel_t& blockmodel, size_t vtx, double temperature, std::mt19937 &engine) noexcept;
 
     inline const double transition_ratio(const blockmodel_t& blockmodel,
                                          const std::vector<mcmc_state_t>& moves) noexcept;
@@ -80,7 +78,7 @@ private:
 class mh_tiago : public metropolis_hasting {
 public:
     std::vector<mcmc_state_t>
-    sample_proposal_distribution(blockmodel_t&& blockmodel, std::mt19937& engine) const noexcept override;
+    sample_proposal_distribution(blockmodel_t&& blockmodel, size_t vtx, std::mt19937& engine) const noexcept override;
 };
 
 #endif // METROPOLIS_HASTING_H

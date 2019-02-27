@@ -18,6 +18,7 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size
     memberships_ = memberships;
     n_.resize(g, 0);
     deg_.resize(memberships.size(), 0);
+    vlist_.resize(memberships.size(), 0);
     num_edges_ = 0;
     entropy_from_degree_correction_ = 0.;
 
@@ -34,6 +35,7 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size
             ++deg_[j];
             ++num_edges_;
         }
+        vlist_[j] = j;
     }
     num_edges_ /= 2;
     init_cache(num_edges_);
@@ -82,7 +84,12 @@ size_t blockmodel_t::get_g() const noexcept { return n_.size(); }
 
 size_t blockmodel_t::get_KA() const noexcept { return KA_; }
 
-bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t> &&moves) noexcept {
+uint_vec_t& blockmodel_t::get_vlist() noexcept { return vlist_; }
+
+std::vector< std::vector<size_t> >& blockmodel_t::get_adj_list() noexcept { return adj_list_; };
+
+
+bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>& moves) noexcept {
     for (auto const &mv: moves) {
         __source__ = mv.source;
         __target__ = mv.target;
