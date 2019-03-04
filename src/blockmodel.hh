@@ -7,6 +7,7 @@
 #include <algorithm> // std::shuffle
 #include <vector>
 #include "types.hh"
+#include "output_functions.hh"
 
 class blockmodel_t {
 protected:
@@ -19,85 +20,19 @@ public:
     blockmodel_t(const uint_vec_t& memberships, uint_vec_t types, size_t g, size_t KA,
                  size_t KB, double epsilon, const adj_list_t* adj_list_ptr);
 
-    template<class RNG>
-    inline auto single_vertex_change_tiago(RNG& engine, size_t vtx) noexcept {  // two && or one & here???
-        R_t_ = 0.;
-        proposal_membership_ = 0;
-        __source__ = 0;
-        __target__ = 0;
-        unsigned int counter{0};
-        while (__source__ == __target__) {
-            ++counter;
-            K = 0;
-
-            while (K == 0) {
-                __vertex__ = vtx;
-
-                if (KA_ == 1 && KB_ == 1) {
-                    __source__ = memberships_[__vertex__];
-                    __target__ = __source__;
-                    return moves_;
-                }
-                if (types_[__vertex__] == 0) {
-                    K = KA_;
-                    if (K == 1) {
-                        __vertex__ += nsize_A_;
-                        K = KB_;
-                    }
-                } else {
-                    K = KB_;
-                    if (K == 1) {
-                        __vertex__ -= nsize_A_;
-                        K = KA_;
-                    }
-                }
-            }
-            __source__ = memberships_[__vertex__];
-            // Here, instead of naively move to adjacent blocks, we follow Tiago Peixoto's approach (PRE 89, 012804 [2014])
-            which_to_move_ = size_t(random_real(engine) * adj_list_[__vertex__].size());
-
-            // if the vtx-to-change-group has 0 degree; pause.
-            if (which_to_move_ == 0 && adj_list_[__vertex__].empty()) {
-                __target__ = __source__;
-                break;
-            }
-
-            vertex_j_ = adj_list_[__vertex__][which_to_move_];
-            proposal_t_ = memberships_[vertex_j_];
-            if (types_[__vertex__] == 0) {
-                proposal_membership_ = size_t(random_real(engine) * KA_);
-                R_t_ = epsilon_ * (KA_) / (m_r_[proposal_t_] + epsilon_ * (KA_));
-            } else {
-                proposal_membership_ = size_t(random_real(engine) * KB_) + size_t(KA_);
-                R_t_ = epsilon_ * (KB_) / (m_r_[proposal_t_] + epsilon_ * (KB_));
-            }
-
-            if (random_real(engine) < R_t_) {
-                __target__ = proposal_membership_;
-            } else {
-                std::discrete_distribution<size_t> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
-                __target__ = d(gen);
-            }
-            if (counter >= 2) {
-                break;
-            }
-        }
-        moves_[0].source = __source__;
-        moves_[0].target = __target__;
-        moves_[0].vertex = __vertex__;
-        return moves_;
-    }
-
-
     const int_vec_t* get_k(size_t vertex) const noexcept;
 
     const int get_degree(size_t vertex) const noexcept;
 
     const uint_vec_t* get_memberships() const noexcept;
 
-    const uint_mat_t* get_m() const noexcept;  /* Optimizing this function (pass by ref) is extremely important!! (why?) */
+    const int_mat_t* get_m() const noexcept;  /* Optimizing this function (pass by ref) is extremely important!! (why?) */
 
-    const uint_vec_t* get_m_r() const noexcept;
+    const int_vec_t* get_m_r() const noexcept;
+
+    const uint_mat_t* get_eta_rk_() const noexcept;
+
+    const int_vec_t* get_n_r() const noexcept;
 
     size_t get_g() const noexcept;
 
@@ -111,19 +46,25 @@ public:
 
     void shuffle_bisbm(std::mt19937& engine, size_t NA, size_t NB) noexcept;
 
+    void init_bisbm() noexcept;
+
     bool apply_mcmc_moves(std::vector<mcmc_state_t>& moves) noexcept;
+
+    std::vector<mcmc_state_t> single_vertex_change(std::mt19937& engine, size_t vtx) noexcept;
 
 private:
     /// State variable
-    size_t KA_ = 0;
-    size_t nsize_A_ = 0;
-    size_t KB_ = 0;
-    size_t nsize_B_ = 0;
-    double epsilon_ = 0.;
+    size_t KA_{0};
+    size_t nsize_A_{0};
+    size_t KB_{0};
+    size_t nsize_B_{0};
+    size_t K_{0};
+    unsigned int max_degree_{0};
+    double epsilon_{0.};
     const adj_list_t * const adj_list_ptr_;
 
     int_mat_t k_;
-    int_vec_t n_;
+    int_vec_t n_r_;
 
     int_vec_t deg_;
     std::vector< std::vector<size_t> > adj_list_;
@@ -133,41 +74,40 @@ private:
     uint_vec_t vlist_;
     const uint_vec_t types_;
 
-    double entropy_from_degree_correction_ = 0.;
+    double entropy_from_degree_correction_{0.};
 
-    uint_mat_t m_;
-    uint_vec_t m_r_;
+    int_mat_t m_;
+    int_vec_t m_r_;
+    uint_mat_t eta_rk_;  // number of nodes of degree k that belong to group r.
 
     /// used for `estimate` mode
-    size_t which_to_move_;
+    size_t which_to_move_{0};
 
     /// in apply_mcmc_moves
     const int_vec_t* ki_;
 
-    /// for single_vertex_change_tiago
-    double R_t_;
-    size_t vertex_j_;
-    size_t proposal_t_;
-    size_t proposal_membership_;
-    size_t K;
+    /// for single_vertex_change
+    double R_t_{0.};
+    size_t vertex_j_{0};
+    size_t proposal_t_{0};
+    size_t proposal_membership_{0};
 
-    /// for single_vertex_change_tiago and apply_mcmc_moves
-    size_t __vertex__ = 0;
-    size_t __source__ = 0;
-    size_t __target__ = 0;
+    /// for single_vertex_change and apply_mcmc_moves
+    size_t __vertex__{0};
+    size_t __source__{0};
+    size_t __target__{0};
 
     std::vector<mcmc_state_t> moves_ = std::vector<mcmc_state_t>(1);
 
     /// Internal distribution. Generator must be passed as a service
     std::uniform_int_distribution<size_t> random_block_;
-    std::uniform_int_distribution<size_t> random_node_;
 
     /// Private methods
     /* Compute stuff from scratch. */
     void compute_k() noexcept;
     void compute_m() noexcept;  // Note: get_m and compute_m are different.
     void compute_m_r() noexcept;
-
+    void compute_eta_rk() noexcept;
 };
 
 #endif // BLOCKMODEL_H

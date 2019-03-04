@@ -61,16 +61,17 @@ private:
     size_t v_{0};
     size_t r_{0};
     size_t s_{0};
-    size_t B_{0};
 
     // TODO: how do we initiate values for these vectors? (or, should we?)
     const int_vec_t* ki;
-    const uint_mat_t* m0;
-    const uint_vec_t* padded_m0;
+    const int_mat_t* m0;
+    const int_vec_t* padded_m0;
+    const uint_mat_t* eta_rk;
+    const int_vec_t* n_r;
 
-    std::vector<unsigned int>::const_iterator citer_m0_r;
-    std::vector<unsigned int>::const_iterator citer_m0_s;
-    std::vector<unsigned int>::const_iterator citer_padded_m0;
+    std::vector<int>::const_iterator citer_m0_r;
+    std::vector<int>::const_iterator citer_m0_s;
+    std::vector<int>::const_iterator citer_padded_m0;
 
 };
 

@@ -1,5 +1,6 @@
 #include "metropolis_hasting.hh"
 #include "support/cache.hh"
+#include "support/int_part.hh"
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Non class methods
@@ -42,17 +43,15 @@ inline bool metropolis_hasting::step(blockmodel_t& blockmodel, size_t vtx, doubl
         std::mt19937& engine) noexcept {
 
     moves_ = sample_proposal_distribution(std::move(blockmodel), vtx, engine);
-    double a = 0.;
+    double a{0.};
     double exp_minus_diff_entropy = transition_ratio(blockmodel, moves_);
-    if (temperature == 0.) {
-        if (exp_minus_diff_entropy >= 1.) {
-            a = 1.;
-        }
+    if (temperature == 0. && exp_minus_diff_entropy >= 1.) {
+        return blockmodel.apply_mcmc_moves(moves_);
     } else {
         a = std::pow(exp_minus_diff_entropy , 1. / temperature) * accu_r_;
-    }
-    if (random_real(engine) < a) {
-        return blockmodel.apply_mcmc_moves(moves_);
+        if (random_real(engine) < a) {
+            return blockmodel.apply_mcmc_moves(moves_);
+        }
     }
     return false;
 }
@@ -77,10 +76,11 @@ double metropolis_hasting::anneal(
     double _entropy_max = entropy_max_;
     double _entropy_min = entropy_min_;
     std::vector< std::vector<size_t> >& adj_list = blockmodel.get_adj_list();
+    uint_vec_t& vlist = blockmodel.get_vlist();
 
     for (size_t sweep = 0; sweep < all_sweeps; ++sweep) {
-        uint_vec_t& vlist = blockmodel.get_vlist();
         std::shuffle(vlist.begin(), vlist.end(), engine);
+
         size_t current_step = num_nodes * sweep;
         for (size_t vi = 0; vi < vlist.size(); ++vi) {
             if (adj_list[vlist[vi]].empty()) {
@@ -91,7 +91,7 @@ double metropolis_hasting::anneal(
                 ++accepted_steps;
                 // TODO: check the effect of `epsilon` from the code block here
                 if (_entropy_max == entropy_max_ && _entropy_min == entropy_min_) {
-                    u += 1;
+                    ++u;
                 } else {
                     u = 0;
                 }
@@ -104,7 +104,7 @@ double metropolis_hasting::anneal(
         }
     }
 
-    return double(accepted_steps) / double(duration);
+    return double(accepted_steps) / double(duration);  // TODO: check these numbers
 }
 
 inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blockmodel,
@@ -118,53 +118,80 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
         return 1.;
     }
 
-    double epsilon = blockmodel.get_epsilon();
-
     size_t KA = blockmodel.get_KA();
     size_t KB = blockmodel.get_KA();
 
+    if ((r_ < KA && s_ >= KA) || (r_ >= KA && s_ < KA)) {
+        return 0.;
+    }
+
+    double epsilon = blockmodel.get_epsilon();
     ki = blockmodel.get_k(v_);
     int deg = blockmodel.get_degree(v_);
 
     m0 = blockmodel.get_m();
     padded_m0 = blockmodel.get_m_r();
 
+    n_r = blockmodel.get_n_r();
+    int INT_n_r_r = n_r->at(r_);
+    int INT_n_r_s = n_r->at(s_);
+
+    eta_rk = blockmodel.get_eta_rk_();
+    int INT_eta_rk_r_deg = eta_rk->at(r_)[deg];
+    int INT_eta_rk_s_deg = eta_rk->at(s_)[deg];
+
     citer_m0_s = m0->at(s_).begin();
 
     citer_padded_m0 = (*padded_m0).begin();
     citer_m0_r = m0->at(r_).begin();
 
-    size_t INT_padded_m0r = padded_m0->at(r_);
-    size_t INT_padded_m1r = INT_padded_m0r - deg;
+    int INT_padded_m0r = padded_m0->at(r_);
+    int INT_padded_m1r = INT_padded_m0r - deg;
 
-    size_t INT_padded_m0s = padded_m0->at(s_);
-    size_t INT_padded_m1s = INT_padded_m0s + deg;
+    int INT_padded_m0s = padded_m0->at(s_);
+    int INT_padded_m1s = INT_padded_m0s + deg;
 
     double accu0 = 0.;
     double accu1 = 0.;
     double entropy0 = 0.;
     double entropy1 = 0.;
 
-    if (r_ < KA) {  // Ka-case
-        B_ = KA;
-    } else {  // Kb-case
-        B_ = KB;
-    }
     auto criterion = (r_ < KA) ? [](size_t a, size_t k) { return a >= k; } : [](size_t a, size_t k) { return a < k; };
     for (auto const& _k: *ki ){
         size_t index = &_k - &ki->at(0);
         if (criterion(index, KA)) {
-            accu0 += _k * (*citer_m0_s + epsilon) / (*citer_padded_m0 + epsilon * B_);
-            accu1 += _k * ((*citer_m0_r - _k) + epsilon) / (*citer_padded_m0 + epsilon * B_);  // last term, originally `*citer_padded_m1`.
-            entropy0 -= *citer_m0_r * (safelog_fast(*citer_m0_r) - safelog_fast(INT_padded_m0r) - safelog_fast(*citer_padded_m0));
-            entropy0 -= *citer_m0_s * (safelog_fast(*citer_m0_s) - safelog_fast(INT_padded_m0s) - safelog_fast(*citer_padded_m0));
-            entropy1 -= (*citer_m0_r - _k) * (safelog_fast(*citer_m0_r - _k) - safelog_fast(INT_padded_m1r) - safelog_fast(*citer_padded_m0));
-            entropy1 -= (*citer_m0_s + _k) * (safelog_fast(*citer_m0_s + _k) - safelog_fast(INT_padded_m1s) - safelog_fast(*citer_padded_m0));
+            accu0 += _k * (*citer_m0_s + epsilon) / (*citer_padded_m0 + epsilon * (KA + KB)) / deg;
+            accu1 += _k * (*citer_m0_r - _k + epsilon) / (*citer_padded_m0 + epsilon * (KA + KB)) / deg;
+            entropy0 -= lgamma_fast(*citer_m0_r + 1);
+            entropy0 -= lgamma_fast(*citer_m0_s + 1);
+            entropy1 -= lgamma_fast(*citer_m0_r - _k + 1);
+            entropy1 -= lgamma_fast(*citer_m0_s + _k + 1);
         }
         ++citer_m0_s;
         ++citer_padded_m0;
         ++citer_m0_r;
     }
+    entropy0 -= -lgamma_fast(INT_padded_m0r + 1);
+    entropy0 -= -lgamma_fast(INT_padded_m0s + 1);
+
+    entropy1 -= -lgamma_fast(INT_padded_m1r + 1);
+    entropy1 -= -lgamma_fast(INT_padded_m1s + 1);
+
+
+    // entropy from degree distribution
+    // Note: we do not need entropy from partition (cancels with the denominator of the entropy from degree dist)
+    // as well as entropy from edge counts (no change).
+    entropy0 += -lgamma_fast(INT_eta_rk_r_deg + 1);
+    entropy0 += -lgamma_fast(INT_eta_rk_s_deg + 1);
+
+    entropy1 += -lgamma_fast(INT_eta_rk_r_deg - 1 + 1);
+    entropy1 += -lgamma_fast(INT_eta_rk_s_deg + 1 + 1);
+
+    entropy0 += log_q(INT_padded_m0r, INT_n_r_r);
+    entropy0 += log_q(INT_padded_m0s, INT_n_r_s);
+
+    entropy1 += log_q(INT_padded_m1r, INT_n_r_r - 1);
+    entropy1 += log_q(INT_padded_m1s, INT_n_r_s + 1);
 
     accu_r_ = accu1 / accu0;
     if (entropy0 >= entropy_max_) {
@@ -173,7 +200,6 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
     if (entropy0 <= entropy_min_) {
         entropy_min_ = entropy0;
     }
-
     return std::exp(-(entropy1 - entropy0));
 }
 
@@ -184,7 +210,5 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
 std::vector<mcmc_state_t> mh_tiago::sample_proposal_distribution(blockmodel_t&& blockmodel,
                                                                  size_t vtx,
                                                                  std::mt19937& engine) const noexcept {
-
-    return blockmodel.single_vertex_change_tiago(engine, vtx);
+    return blockmodel.single_vertex_change(engine, vtx);
 }
-

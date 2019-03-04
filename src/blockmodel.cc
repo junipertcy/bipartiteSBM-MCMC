@@ -4,19 +4,22 @@
 #include "output_functions.hh"
 
 #include "support/cache.hh"
+#include "support/int_part.hh"
 
 using namespace std;
 
 /** Default constructor */
 blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size_t g, size_t KA,
                            size_t KB, double epsilon, const adj_list_t *adj_list_ptr) :
-        random_block_(0, g - 1), random_node_(0, (*adj_list_ptr).size() - 1), adj_list_ptr_(adj_list_ptr),
+        random_block_(0, g - 1),
+        adj_list_ptr_(adj_list_ptr),
         types_(std::move(types)) {
     KA_ = KA;
     KB_ = KB;
+    K_ = KA + KB;
     epsilon_ = epsilon;
     memberships_ = memberships;
-    n_.resize(g, 0);
+    n_r_.resize(g, 0);
     deg_.resize(memberships.size(), 0);
     vlist_.resize(memberships.size(), 0);
     num_edges_ = 0;
@@ -29,7 +32,7 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size
             nsize_B_ += 1;
         }
 
-        ++n_[memberships[j]];
+        ++n_r_[memberships[j]];
 
         for (auto nb = adj_list_ptr_->at(j).begin(); nb != adj_list_ptr_->at(j).end(); ++nb) {
             ++deg_[j];
@@ -38,7 +41,11 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size
         vlist_[j] = j;
     }
     num_edges_ /= 2;
+    max_degree_ = *std::max_element(deg_.begin(), deg_.end());
+
+    // initiate caches
     init_cache(num_edges_);
+    init_q_cache(1000);
 
     double deg_factorial = 0;
     for (size_t node = 0; node < memberships.size(); ++node) {
@@ -49,9 +56,6 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size
         }
         entropy_from_degree_correction_ += deg_factorial;
     }
-    compute_k();
-    compute_m();
-    compute_m_r();
 
     // Note that Tiago's MCMC proposal jumps has to randomly access elements in an adjacency list
     // Here, we define an vectorized data structure to make such data access O(1) [else it'll be O(n)].
@@ -76,11 +80,15 @@ const uint_vec_t *blockmodel_t::get_memberships() const noexcept { return &membe
 
 double blockmodel_t::get_epsilon() const noexcept { return epsilon_; }
 
-const uint_mat_t *blockmodel_t::get_m() const noexcept { return &m_; }
+const int_mat_t *blockmodel_t::get_m() const noexcept { return &m_; }
 
-const uint_vec_t *blockmodel_t::get_m_r() const noexcept { return &m_r_; }
+const int_vec_t *blockmodel_t::get_m_r() const noexcept { return &m_r_; }
 
-size_t blockmodel_t::get_g() const noexcept { return n_.size(); }
+const uint_mat_t *blockmodel_t::get_eta_rk_() const noexcept { return &eta_rk_; }
+
+const int_vec_t *blockmodel_t::get_n_r() const noexcept { return &n_r_; }
+
+size_t blockmodel_t::get_g() const noexcept { return n_r_.size(); }
 
 size_t blockmodel_t::get_KA() const noexcept { return KA_; }
 
@@ -95,12 +103,15 @@ bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>& moves) noexcept {
         __target__ = mv.target;
         __vertex__ = mv.vertex;
 
-        --n_[__source__];
-        if (n_[__source__] == 0) {  // No move that makes an empty group will be allowed
-            ++n_[__source__];
+        --n_r_[__source__];
+        if (n_r_[__source__] == 0) {  // No move that makes an empty group will be allowed
+            ++n_r_[__source__];
             return false;
         }
-        ++n_[__target__];
+        ++n_r_[__target__];
+
+        --eta_rk_[__source__][deg_[__vertex__]];
+        ++eta_rk_[__target__][deg_[__vertex__]];
 
         ki_ = get_k(__vertex__);
         size_t ki_size = ki_->size();
@@ -126,20 +137,58 @@ bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>& moves) noexcept {
     return true;
 }
 
+std::vector<mcmc_state_t> blockmodel_t::single_vertex_change(std::mt19937& engine, size_t vtx) noexcept {
+    if ((types_[vtx] == 0 && KA_ == 1) || (types_[vtx] == 1 && KB_ == 1)){
+        __target__ = __source__;
+    } else if (adj_list_[vtx].empty()) {
+        __target__ = random_block_(engine);
+    } else {
+        which_to_move_ = size_t(random_real(engine) * adj_list_[vtx].size());
+        vertex_j_ = adj_list_[vtx][which_to_move_];
+        proposal_t_ = memberships_[vertex_j_];
+
+        proposal_membership_ = random_block_(engine);
+        R_t_ = epsilon_ * (K_) / (m_r_[proposal_t_] + epsilon_ * (K_));
+
+        if (random_real(engine) < R_t_) {
+            __target__ = proposal_membership_;
+        } else {
+            std::discrete_distribution<size_t> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
+            __target__ = d(gen);
+        }
+
+    }
+    __source__ = memberships_[vtx];
+    moves_[0].source = __source__;
+    moves_[0].target = __target__;
+    moves_[0].vertex = vtx;
+
+    return moves_;
+}
+
+
 void blockmodel_t::shuffle_bisbm(std::mt19937 &engine, size_t NA, size_t NB) noexcept {
     std::shuffle(&memberships_[0], &memberships_[NA], engine);
     std::shuffle(&memberships_[NA], &memberships_[NA + NB], engine);
     compute_k();
     compute_m();
     compute_m_r();
+    compute_eta_rk();
 }
 
-// The 3 functions below should only execute once.
+void blockmodel_t::init_bisbm() noexcept {
+    compute_k();
+    compute_m();
+    compute_m_r();
+    compute_eta_rk();
+}
+
+// The following 4 functions should only be executed once.
 inline void blockmodel_t::compute_k() noexcept {
     k_.clear();
     k_.resize(adj_list_ptr_->size());
     for (size_t i = 0; i < adj_list_ptr_->size(); ++i) {
-        k_[i].resize(this->n_.size(), 0);
+        k_[i].resize(this->n_r_.size(), 0);
         for (auto nb = adj_list_ptr_->at(i).begin(); nb != adj_list_ptr_->at(i).end(); ++nb) {
             ++k_[i][memberships_[*nb]];
         }
@@ -158,7 +207,6 @@ inline void blockmodel_t::compute_m() noexcept {
             ++m_[__vertex__][memberships_[nb]];
         }
     }
-
 }
 
 inline void blockmodel_t::compute_m_r() noexcept {
@@ -171,5 +219,16 @@ inline void blockmodel_t::compute_m_r() noexcept {
             _m_r += m_[r][s];
         }
         m_r_[r] = unsigned(int(_m_r));
+    }
+}
+
+inline void blockmodel_t::compute_eta_rk() noexcept {
+    eta_rk_.clear();
+    eta_rk_.resize(KA_ + KB_);
+    for (size_t idx = 0; idx < KA_ + KB_; ++idx) {
+        eta_rk_[idx].resize(max_degree_ + 1, 0);
+    }
+    for (size_t j = 0; j < memberships_.size(); ++j) {
+        ++eta_rk_[memberships_[j]][deg_[j]];
     }
 }

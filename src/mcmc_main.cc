@@ -336,8 +336,10 @@ int main(int argc, char const *argv[]) {
     types_init.clear();
     if (randomize) {
         blockmodel.shuffle_bisbm(engine, NA, NB);
+    } else {
+        blockmodel.init_bisbm();
     }
-    uint_mat_t m = *blockmodel.get_m();
+    int_mat_t m = *blockmodel.get_m();
     // Bind proper Metropolis-Hasting algorithm
     // Originally, we provided three modes: marginalizing, estimating, and annealing
     // But we wanted to stay fit. Now only annealing applies.
@@ -350,10 +352,10 @@ int main(int argc, char const *argv[]) {
     }
 
     /* ~~~~~ Logging ~~~~~~~*/
-#if LOGGING == 1
+#if LOGGING == 0
     std::clog << "edge_list_path: " << edge_list_path << "\n";
     std::clog << "initial affinity matrix:\n";
-    output_mat<uint_mat_t>(m, std::clog);
+    output_mat<int_mat_t>(m, std::clog);
     std::clog << "sizes (g=" << n.size() << "): ";
     for (auto const &it: n) std::clog << it << " ";
     std::clog << "\n";
