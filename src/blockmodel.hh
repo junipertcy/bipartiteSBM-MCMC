@@ -38,6 +38,8 @@ public:
 
     double get_epsilon() const noexcept;
 
+    double get_entropy() const noexcept;
+
     size_t get_KA() const noexcept;
 
     uint_vec_t& get_vlist() noexcept;
@@ -48,7 +50,7 @@ public:
 
     void init_bisbm() noexcept;
 
-    bool apply_mcmc_moves(std::vector<mcmc_state_t>& moves) noexcept;
+    bool apply_mcmc_moves(std::vector<mcmc_state_t>& moves, double dS) noexcept;
 
     std::vector<mcmc_state_t> single_vertex_change(std::mt19937& engine, size_t vtx) noexcept;
 
@@ -61,6 +63,7 @@ private:
     size_t K_{0};
     unsigned int max_degree_{0};
     double epsilon_{0.};
+    double entropy_{0.};  // not true entropy
     const adj_list_t * const adj_list_ptr_;
 
     int_mat_t k_;

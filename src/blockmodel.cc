@@ -80,6 +80,8 @@ const uint_vec_t *blockmodel_t::get_memberships() const noexcept { return &membe
 
 double blockmodel_t::get_epsilon() const noexcept { return epsilon_; }
 
+double blockmodel_t::get_entropy() const noexcept { return entropy_; }
+
 const int_mat_t *blockmodel_t::get_m() const noexcept { return &m_; }
 
 const int_vec_t *blockmodel_t::get_m_r() const noexcept { return &m_r_; }
@@ -88,7 +90,7 @@ const uint_mat_t *blockmodel_t::get_eta_rk_() const noexcept { return &eta_rk_; 
 
 const int_vec_t *blockmodel_t::get_n_r() const noexcept { return &n_r_; }
 
-size_t blockmodel_t::get_g() const noexcept { return n_r_.size(); }
+inline size_t blockmodel_t::get_g() const noexcept { return n_r_.size(); }
 
 size_t blockmodel_t::get_KA() const noexcept { return KA_; }
 
@@ -97,7 +99,7 @@ uint_vec_t& blockmodel_t::get_vlist() noexcept { return vlist_; }
 std::vector< std::vector<size_t> >& blockmodel_t::get_adj_list() noexcept { return adj_list_; };
 
 
-bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>& moves) noexcept {
+bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>& moves, double dS) noexcept {
     for (auto const &mv: moves) {
         __source__ = mv.source;
         __target__ = mv.target;
@@ -133,13 +135,15 @@ bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>& moves) noexcept {
         }
         // Set new memberships
         memberships_[__vertex__] = unsigned(int(__target__));
+
+        entropy_ += dS;
     }
     return true;
 }
 
 std::vector<mcmc_state_t> blockmodel_t::single_vertex_change(std::mt19937& engine, size_t vtx) noexcept {
     if ((types_[vtx] == 0 && KA_ == 1) || (types_[vtx] == 1 && KB_ == 1)){
-        __target__ = __source__;
+        __target__ = memberships_[vtx];
     } else if (adj_list_[vtx].empty()) {
         __target__ = random_block_(engine);
     } else {
@@ -148,7 +152,7 @@ std::vector<mcmc_state_t> blockmodel_t::single_vertex_change(std::mt19937& engin
         proposal_t_ = memberships_[vertex_j_];
 
         proposal_membership_ = random_block_(engine);
-        R_t_ = epsilon_ * (K_) / (m_r_[proposal_t_] + epsilon_ * (K_));
+        R_t_ = epsilon_ * K_ / (m_r_[proposal_t_] + epsilon_ * K_);
 
         if (random_real(engine) < R_t_) {
             __target__ = proposal_membership_;
@@ -156,7 +160,6 @@ std::vector<mcmc_state_t> blockmodel_t::single_vertex_change(std::mt19937& engin
             std::discrete_distribution<size_t> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
             __target__ = d(gen);
         }
-
     }
     __source__ = memberships_[vtx];
     moves_[0].source = __source__;

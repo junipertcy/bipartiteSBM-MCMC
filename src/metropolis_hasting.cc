@@ -41,16 +41,21 @@ double abrupt_cool_schedule(size_t t, float_vec_t cooling_schedule_kwargs) noexc
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline bool metropolis_hasting::step(blockmodel_t& blockmodel, size_t vtx, double temperature,
         std::mt19937& engine) noexcept {
-
     moves_ = sample_proposal_distribution(std::move(blockmodel), vtx, engine);
     double a{0.};
-    double exp_minus_diff_entropy = transition_ratio(blockmodel, moves_);
-    if (temperature == 0. && exp_minus_diff_entropy >= 1.) {
-        return blockmodel.apply_mcmc_moves(moves_);
+    double dS = transition_ratio(blockmodel, moves_);
+    if (temperature == 0.) {
+        if (dS < 0) {
+            return blockmodel.apply_mcmc_moves(moves_, dS);
+        } else {
+            return false;
+        }
     } else {
-        a = std::pow(exp_minus_diff_entropy , 1. / temperature) * accu_r_;
-        if (random_real(engine) < a) {
-            return blockmodel.apply_mcmc_moves(moves_);
+        a = - 1. / temperature * dS + std::log(accu_r_);
+        if (a > 0.) {
+            return blockmodel.apply_mcmc_moves(moves_, dS);
+        } else if (random_real(engine) < std::exp(a)) {
+            return blockmodel.apply_mcmc_moves(moves_, dS);
         }
     }
     return false;
@@ -63,18 +68,14 @@ double metropolis_hasting::anneal(
         size_t duration,
         size_t steps_await,
         std::mt19937 &engine) noexcept {
-
-
     size_t num_nodes = blockmodel.get_memberships()->size();
     size_t accepted_steps = 0;
     size_t u = 0;
 
-    entropy_min_ = 1000000;
-    entropy_max_ = 0;
-
+    entropy_min_ = std::numeric_limits<double>::infinity();
     auto all_sweeps = size_t(duration / num_nodes);
-    double _entropy_max = entropy_max_;
-    double _entropy_min = entropy_min_;
+    double temperature{1};
+
     std::vector< std::vector<size_t> >& adj_list = blockmodel.get_adj_list();
     uint_vec_t& vlist = blockmodel.get_vlist();
 
@@ -86,21 +87,21 @@ double metropolis_hasting::anneal(
             if (adj_list[vlist[vi]].empty()) {
                 continue;
             }
-
-            if (step(blockmodel, vlist[vi], cooling_schedule(current_step + vi, cooling_schedule_kwargs), engine)) {
+            temperature = cooling_schedule(current_step + vi, cooling_schedule_kwargs);
+            if (step(blockmodel, vlist[vi], temperature, engine)) {
                 ++accepted_steps;
-                // TODO: check the effect of `epsilon` from the code block here
-                if (_entropy_max == entropy_max_ && _entropy_min == entropy_min_) {
-                    ++u;
-                } else {
+                if (blockmodel.get_entropy() < entropy_min_) {
+                    entropy_min_ = blockmodel.get_entropy();
                     u = 0;
                 }
+            }
+            if (temperature == 0.) {
+                ++u;
             }
         }
         if (u >= steps_await) {
             std::clog << "algorithm stops after: " << sweep << " sweeps. \n";
-            sweep = all_sweeps;  // TODO: check -- if acceptance rate is even meaningful in annealing mode?
-            return double(accepted_steps) / double(sweep * num_nodes);
+            return double(accepted_steps) / double((sweep + 1) * num_nodes);
         }
     }
 
@@ -115,14 +116,14 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
 
     if (r_ == s_) {
         accu_r_ = 1.;
-        return 1.;
+        return 0.;
     }
 
     size_t KA = blockmodel.get_KA();
     size_t KB = blockmodel.get_KA();
 
     if ((r_ < KA && s_ >= KA) || (r_ >= KA && s_ < KA)) {
-        return 0.;
+        return std::numeric_limits<double>::infinity();
     }
 
     double epsilon = blockmodel.get_epsilon();
@@ -159,7 +160,7 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
     auto criterion = (r_ < KA) ? [](size_t a, size_t k) { return a >= k; } : [](size_t a, size_t k) { return a < k; };
     for (auto const& _k: *ki ){
         size_t index = &_k - &ki->at(0);
-        if (criterion(index, KA)) {
+        if (criterion(index, KA) && _k != 0) {
             accu0 += _k * (*citer_m0_s + epsilon) / (*citer_padded_m0 + epsilon * (KA + KB)) / deg;
             accu1 += _k * (*citer_m0_r - _k + epsilon) / (*citer_padded_m0 + epsilon * (KA + KB)) / deg;
             entropy0 -= lgamma_fast(*citer_m0_r + 1);
@@ -177,7 +178,6 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
     entropy1 -= -lgamma_fast(INT_padded_m1r + 1);
     entropy1 -= -lgamma_fast(INT_padded_m1s + 1);
 
-
     // entropy from degree distribution
     // Note: we do not need entropy from partition (cancels with the denominator of the entropy from degree dist)
     // as well as entropy from edge counts (no change).
@@ -194,20 +194,14 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
     entropy1 += log_q(INT_padded_m1s, INT_n_r_s + 1);
 
     accu_r_ = accu1 / accu0;
-    if (entropy0 >= entropy_max_) {
-        entropy_max_ = entropy0;
-    }
-    if (entropy0 <= entropy_min_) {
-        entropy_min_ = entropy0;
-    }
-    return std::exp(-(entropy1 - entropy0));
+    return entropy1 - entropy0;
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // virtual functions implementation
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /* Implementation for the single vertex change (SBM) */
-std::vector<mcmc_state_t> mh_tiago::sample_proposal_distribution(blockmodel_t&& blockmodel,
+inline std::vector<mcmc_state_t> mh_tiago::sample_proposal_distribution(blockmodel_t&& blockmodel,
                                                                  size_t vtx,
                                                                  std::mt19937& engine) const noexcept {
     return blockmodel.single_vertex_change(engine, vtx);

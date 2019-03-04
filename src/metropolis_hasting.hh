@@ -24,8 +24,7 @@ class metropolis_hasting {
 
 protected:
     std::uniform_real_distribution<> random_real;
-    double entropy_min_ = 0.;
-    double entropy_max_ = 0.;  // for automatic detection to stop the algorithm after T successive MCMC sweeps occurred
+    double entropy_min_ = std::numeric_limits<double>::infinity();
     double accu_r_ = 0.;  // for Tiago Peixoto's smart MCMC
 
 private:
