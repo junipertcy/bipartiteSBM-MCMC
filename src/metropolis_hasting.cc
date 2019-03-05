@@ -84,9 +84,6 @@ double metropolis_hasting::anneal(
 
         size_t current_step = num_nodes * sweep;
         for (size_t vi = 0; vi < vlist.size(); ++vi) {
-            if (adj_list[vlist[vi]].empty()) {
-                continue;
-            }
             temperature = cooling_schedule(current_step + vi, cooling_schedule_kwargs);
             if (step(blockmodel, vlist[vi], temperature, engine)) {
                 ++accepted_steps;
@@ -95,7 +92,7 @@ double metropolis_hasting::anneal(
                     u = 0;
                 }
             }
-            if (temperature == 0.) {
+            if (temperature < 1.) {
                 ++u;
             }
         }
@@ -193,7 +190,12 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
     entropy1 += log_q(INT_padded_m1r, INT_n_r_r - 1);
     entropy1 += log_q(INT_padded_m1s, INT_n_r_s + 1);
 
-    accu_r_ = accu1 / accu0;
+    if (deg == 0) {
+        accu_r_ = 1;
+    } else {
+        accu_r_ = accu1 / accu0;
+    }
+
     return entropy1 - entropy0;
 }
 
