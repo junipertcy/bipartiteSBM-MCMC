@@ -5,6 +5,7 @@
 
 #include "support/cache.hh"
 #include "support/int_part.hh"
+#include "support/util.hh"
 
 using namespace std;
 
@@ -27,9 +28,9 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size
 
     for (size_t j = 0; j < memberships.size(); ++j) {
         if (types_[j] == 0) {
-            nsize_A_ += 1;
+            na_ += 1;
         } else if (types_[j] == 1) {
-            nsize_B_ += 1;
+            nb_ += 1;
         }
 
         ++n_r_[memberships[j]];
@@ -76,6 +77,12 @@ const int_vec_t *blockmodel_t::get_k(size_t vertex) const noexcept { return &k_[
 
 const int blockmodel_t::get_degree(size_t vertex) const noexcept { return deg_.at(vertex); }
 
+const int blockmodel_t::get_num_edges() const noexcept { return num_edges_; }
+
+const int blockmodel_t::get_na() const noexcept { return na_; }
+
+const int blockmodel_t::get_nb() const noexcept { return nb_; }
+
 const uint_vec_t *blockmodel_t::get_memberships() const noexcept { return &memberships_; }
 
 double blockmodel_t::get_epsilon() const noexcept { return epsilon_; }
@@ -90,20 +97,25 @@ const uint_mat_t *blockmodel_t::get_eta_rk_() const noexcept { return &eta_rk_; 
 
 const int_vec_t *blockmodel_t::get_n_r() const noexcept { return &n_r_; }
 
-inline size_t blockmodel_t::get_g() const noexcept { return n_r_.size(); }
+inline size_t blockmodel_t::get_g() const noexcept { return K_; }
 
 size_t blockmodel_t::get_KA() const noexcept { return KA_; }
 
-uint_vec_t& blockmodel_t::get_vlist() noexcept { return vlist_; }
+size_t blockmodel_t::get_KB() const noexcept { return KB_; }
 
-std::vector< std::vector<size_t> >& blockmodel_t::get_adj_list() noexcept { return adj_list_; };
+uint_vec_t &blockmodel_t::get_vlist() noexcept { return vlist_; }
+
+std::vector<std::vector<size_t> > &blockmodel_t::get_adj_list() noexcept { return adj_list_; };
 
 
-bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>& moves, double dS) noexcept {
+bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t> &moves, double dS) noexcept {
     for (auto const &mv: moves) {
         __source__ = mv.source;
         __target__ = mv.target;
         __vertex__ = mv.vertex;
+
+        // Set new memberships
+        memberships_[__vertex__] = unsigned(int(__target__));
 
         --n_r_[__source__];
         if (n_r_[__source__] == 0) {  // No move that makes an empty group will be allowed
@@ -128,34 +140,31 @@ bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t>& moves, double dS)
         }
         m_r_[__source__] -= deg_[__vertex__];
         m_r_[__target__] += deg_[__vertex__];
+
         // Change block degrees and block sizes
         for (auto const &neighbour: adj_list_ptr_->at(__vertex__)) {
             --k_[neighbour][__source__];
             ++k_[neighbour][__target__];
         }
-        // Set new memberships
-        memberships_[__vertex__] = unsigned(int(__target__));
 
         entropy_ += dS;
     }
     return true;
 }
 
-std::vector<mcmc_state_t> blockmodel_t::single_vertex_change(std::mt19937& engine, size_t vtx) noexcept {
-    if ((types_[vtx] == 0 && KA_ == 1) || (types_[vtx] == 1 && KB_ == 1)){
+std::vector<mcmc_state_t> blockmodel_t::single_vertex_change(std::mt19937 &engine, size_t vtx) noexcept {
+    if ((types_[vtx] == 0 && KA_ == 1) || (types_[vtx] == 1 && KB_ == 1)) {
         __target__ = memberships_[vtx];
     } else if (adj_list_[vtx].empty()) {
-        __target__ = random_block_(engine);
+        __target__ = size_t(random_real(engine) * K_);
     } else {
         which_to_move_ = size_t(random_real(engine) * adj_list_[vtx].size());
         vertex_j_ = adj_list_[vtx][which_to_move_];
         proposal_t_ = memberships_[vertex_j_];
-
-        proposal_membership_ = random_block_(engine);
         R_t_ = epsilon_ * K_ / (m_r_[proposal_t_] + epsilon_ * K_);
 
         if (random_real(engine) < R_t_) {
-            __target__ = proposal_membership_;
+            __target__ = size_t(random_real(engine) * K_);
         } else {
             std::discrete_distribution<size_t> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
             __target__ = d(gen);
@@ -227,11 +236,55 @@ inline void blockmodel_t::compute_m_r() noexcept {
 
 inline void blockmodel_t::compute_eta_rk() noexcept {
     eta_rk_.clear();
-    eta_rk_.resize(KA_ + KB_);
-    for (size_t idx = 0; idx < KA_ + KB_; ++idx) {
+    eta_rk_.resize(get_g());
+    for (size_t idx = 0; idx < get_g(); ++idx) {
         eta_rk_[idx].resize(max_degree_ + 1, 0);
     }
     for (size_t j = 0; j < memberships_.size(); ++j) {
         ++eta_rk_[memberships_[j]][deg_[j]];
     }
+}
+
+inline void blockmodel_t::compute_n_r() noexcept {
+    n_r_.clear();
+    n_r_.resize(get_g(), 0);
+    for (auto const &mb: memberships_) {
+        ++n_r_[mb];
+    }
+}
+
+void blockmodel_t::summary() noexcept {
+    std::clog << "(Ka, Kb) = (" << KA_ << ", " << KB_ << ") \n";
+    std::clog << "entropy: " << entropy() << "\n";
+}
+
+double blockmodel_t::entropy() noexcept {
+    double ent{0};
+    for (auto const &k: deg_) {
+        ent -= lgamma_fast(k + 1);
+    }
+    for (auto const &r: m_) {
+        size_t index = &r - &m_[0];
+        for (auto const &s: r) {
+            size_t index_s = &s - &r[0];
+            if (index_s > index) {
+                ent -= lgamma_fast(s + 1);
+            }
+        }
+        for (auto const &eta: eta_rk_[index]) {
+            ent -= lgamma_fast(eta + 1);
+        }
+        ent += lgamma_fast(m_r_[index] + 1);
+        ent += log_q(m_r_[index], n_r_[index]);
+
+    }
+
+    ent += lbinom_fast(KA_ * KB_ + num_edges_ - 1, num_edges_);
+    ent += lbinom(na_ - 1, KA_ - 1);
+    ent += lbinom(nb_ - 1, KB_ - 1);
+    ent += safelog_fast(na_ * nb_);
+    ent += lgamma_fast(na_ + 1);
+    ent += lgamma_fast(nb_ + 1);
+    return ent;
+
 }

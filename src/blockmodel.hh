@@ -24,6 +24,12 @@ public:
 
     const int get_degree(size_t vertex) const noexcept;
 
+    const int get_num_edges() const noexcept;
+
+    const int get_na() const noexcept;
+
+    const int get_nb() const noexcept;
+
     const uint_vec_t* get_memberships() const noexcept;
 
     const int_mat_t* get_m() const noexcept;  /* Optimizing this function (pass by ref) is extremely important!! (why?) */
@@ -42,6 +48,8 @@ public:
 
     size_t get_KA() const noexcept;
 
+    size_t get_KB() const noexcept;
+
     uint_vec_t& get_vlist() noexcept;
 
     std::vector< std::vector<size_t> >& get_adj_list() noexcept;
@@ -54,12 +62,16 @@ public:
 
     std::vector<mcmc_state_t> single_vertex_change(std::mt19937& engine, size_t vtx) noexcept;
 
+    void summary() noexcept;
+
+    double entropy() noexcept;
+
 private:
     /// State variable
     size_t KA_{0};
-    size_t nsize_A_{0};
+    size_t na_{0};
     size_t KB_{0};
-    size_t nsize_B_{0};
+    size_t nb_{0};
     size_t K_{0};
     unsigned int max_degree_{0};
     double epsilon_{0.};
@@ -93,7 +105,6 @@ private:
     double R_t_{0.};
     size_t vertex_j_{0};
     size_t proposal_t_{0};
-    size_t proposal_membership_{0};
 
     /// for single_vertex_change and apply_mcmc_moves
     size_t __vertex__{0};
@@ -111,6 +122,7 @@ private:
     void compute_m() noexcept;  // Note: get_m and compute_m are different.
     void compute_m_r() noexcept;
     void compute_eta_rk() noexcept;
+    void compute_n_r() noexcept;
 };
 
 #endif // BLOCKMODEL_H

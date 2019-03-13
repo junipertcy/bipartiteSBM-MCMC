@@ -98,10 +98,11 @@ double metropolis_hasting::anneal(
         }
         if (u >= steps_await) {
             std::clog << "algorithm stops after: " << sweep << " sweeps. \n";
+            blockmodel.summary();
             return double(accepted_steps) / double((sweep + 1) * num_nodes);
         }
     }
-
+    blockmodel.summary();
     return double(accepted_steps) / double(duration);  // TODO: check these numbers
 }
 
@@ -116,8 +117,14 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
         return 0.;
     }
 
+    double accu0 = 0.;
+    double accu1 = 0.;
+    double entropy0 = 0.;
+    double entropy1 = 0.;
+
     size_t KA = blockmodel.get_KA();
-    size_t KB = blockmodel.get_KA();
+    size_t KB = blockmodel.get_KB();
+    double K = KA + KB;
 
     if ((r_ < KA && s_ >= KA) || (r_ >= KA && s_ < KA)) {
         return std::numeric_limits<double>::infinity();
@@ -149,17 +156,13 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
     int INT_padded_m0s = padded_m0->at(s_);
     int INT_padded_m1s = INT_padded_m0s + deg;
 
-    double accu0 = 0.;
-    double accu1 = 0.;
-    double entropy0 = 0.;
-    double entropy1 = 0.;
 
     auto criterion = (r_ < KA) ? [](size_t a, size_t k) { return a >= k; } : [](size_t a, size_t k) { return a < k; };
     for (auto const& _k: *ki ){
         size_t index = &_k - &ki->at(0);
         if (criterion(index, KA) && _k != 0) {
-            accu0 += _k * (*citer_m0_s + epsilon) / (*citer_padded_m0 + epsilon * (KA + KB)) / deg;
-            accu1 += _k * (*citer_m0_r - _k + epsilon) / (*citer_padded_m0 + epsilon * (KA + KB)) / deg;
+            accu0 += _k * (*citer_m0_s + epsilon) / (*citer_padded_m0 + epsilon * K) / deg;
+            accu1 += _k * (*citer_m0_r - _k + epsilon) / (*citer_padded_m0 + epsilon * K) / deg;
             entropy0 -= lgamma_fast(*citer_m0_r + 1);
             entropy0 -= lgamma_fast(*citer_m0_s + 1);
             entropy1 -= lgamma_fast(*citer_m0_r - _k + 1);
