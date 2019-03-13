@@ -113,9 +113,6 @@ private:
 
     std::vector<mcmc_state_t> moves_ = std::vector<mcmc_state_t>(1);
 
-    /// Internal distribution. Generator must be passed as a service
-    std::uniform_int_distribution<size_t> random_block_;
-
     /// Private methods
     /* Compute stuff from scratch. */
     void compute_k() noexcept;

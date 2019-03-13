@@ -12,7 +12,6 @@ using namespace std;
 /** Default constructor */
 blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size_t g, size_t KA,
                            size_t KB, double epsilon, const adj_list_t *adj_list_ptr) :
-        random_block_(0, g - 1),
         adj_list_ptr_(adj_list_ptr),
         types_(std::move(types)) {
     KA_ = KA;
@@ -114,9 +113,6 @@ bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t> &moves, double dS)
         __target__ = mv.target;
         __vertex__ = mv.vertex;
 
-        // Set new memberships
-        memberships_[__vertex__] = unsigned(int(__target__));
-
         --n_r_[__source__];
         if (n_r_[__source__] == 0) {  // No move that makes an empty group will be allowed
             ++n_r_[__source__];
@@ -146,6 +142,9 @@ bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_state_t> &moves, double dS)
             --k_[neighbour][__source__];
             ++k_[neighbour][__target__];
         }
+
+        // Set new memberships
+        memberships_[__vertex__] = unsigned(int(__target__));
 
         entropy_ += dS;
     }
@@ -276,7 +275,6 @@ double blockmodel_t::entropy() noexcept {
         }
         ent += lgamma_fast(m_r_[index] + 1);
         ent += log_q(m_r_[index], n_r_[index]);
-
     }
 
     ent += lbinom_fast(KA_ * KB_ + num_edges_ - 1, num_edges_);
