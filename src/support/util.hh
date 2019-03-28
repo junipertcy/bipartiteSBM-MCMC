@@ -96,8 +96,56 @@ bool has_element(Vec& vec, PosMap& pos, Val val)
     return (i < vec.size() && vec[i] == val);
 }
 
+template<typename T>
+std::tuple<std::vector<int>, std::vector<int>> geospace(T start_a_in, T end_a_in, T start_b_in, T end_b_in, double ratio)
+{
+    bool reverse = false;
+    std::vector<int> geospaced_a;
+    std::vector<int> geospaced_b;
 
+    auto r = static_cast<double>(ratio);
+    if (r <= 1.) { return std::make_tuple(std::vector<int>{0}, std::vector<int>{0}); }
 
+    int start_a = static_cast<int>(start_a_in);
+    int end_a = static_cast<int>(end_a_in);
 
+    int start_b = static_cast<int>(start_b_in);
+    int end_b = static_cast<int>(end_b_in);
+    if (start_a - end_a > start_b - end_b) {
+        start_a = static_cast<int>(start_b_in);
+        end_a = static_cast<int>(end_b_in);
+
+        start_b = static_cast<int>(start_a_in);
+        end_b = static_cast<int>(end_a_in);
+        reverse = !reverse;
+    }
+
+    int d = start_a;
+    size_t i = 0;
+    while (d > end_a) {
+        geospaced_a.push_back(d);
+        i += 1;
+        d = floor(start_a / std::pow(r, i));
+    }
+
+    geospaced_a.push_back(end_a);
+    size_t n =  geospaced_a.size();
+
+    double r_ = std::pow(start_b / end_b, 1. / (n - 1));
+    for (size_t idx = 0; idx < n; ++idx) {
+        int b = floor(start_b / std::pow(r_, idx));
+        if (b < end_b) {
+            geospaced_b.push_back(end_b);
+        } else {
+            geospaced_b.push_back(b);
+        }
+    }
+    if (!reverse) {
+        return std::make_tuple(geospaced_a, geospaced_b);
+    } else {
+        return std::make_tuple(geospaced_b, geospaced_a);
+    }
+
+}
 
 #endif //SBM_INFERENCE_UTIL_HH

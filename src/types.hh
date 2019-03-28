@@ -25,11 +25,10 @@ using mcmc_move_t = struct mcmc_move_t
     size_t target;
 };
 
-
-using mcmc_state_t = struct mcmc_state_t : mcmc_move_t
+using block_move_t = struct block_move_t
 {
-    uint_vec_t memberships;
+    size_t source;
+    size_t target;
 };
-
 
 #endif // TYPES_H

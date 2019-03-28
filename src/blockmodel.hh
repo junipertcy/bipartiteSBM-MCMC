@@ -6,10 +6,12 @@
 #include <utility>
 #include <algorithm> // std::shuffle
 #include <vector>
+#include <map>
 #include "types.hh"
 #include "output_functions.hh"
 
 class blockmodel_t {
+
 protected:
     std::uniform_real_distribution<> random_real;
     std::random_device rd;
@@ -52,15 +54,25 @@ public:
 
     uint_vec_t& get_vlist() noexcept;
 
+    void agg_merge(std::mt19937 &engine, int diff_a, int diff_b, int nm) noexcept;
+
+    double compute_dS(mcmc_move_t move) noexcept;
+
+    double compute_dS(block_move_t move) noexcept;
+
     std::vector< std::vector<size_t> >& get_adj_list() noexcept;
 
     void shuffle_bisbm(std::mt19937& engine, size_t NA, size_t NB) noexcept;
 
     void init_bisbm() noexcept;
 
-    bool apply_mcmc_moves(std::vector<mcmc_state_t>& moves, double dS) noexcept;
+    bool apply_mcmc_moves(std::vector<mcmc_move_t>& moves, double dS) noexcept;
 
-    std::vector<mcmc_state_t> single_vertex_change(std::mt19937& engine, size_t vtx) noexcept;
+    bool apply_block_moves(std::set<size_t>& impacted, std::vector<std::set<size_t>>& accepted) noexcept;
+
+    std::vector<mcmc_move_t> single_vertex_change(std::mt19937& engine, size_t vtx) noexcept;
+
+    block_move_t& single_block_change(std::mt19937& engine, size_t src) noexcept;
 
     void summary() noexcept;
 
@@ -83,10 +95,12 @@ private:
 
     int_vec_t deg_;
     std::vector< std::vector<size_t> > adj_list_;
+    std::vector< std::vector<size_t> > b_adj_list_;
     size_t num_edges_ = 0;
 
     uint_vec_t memberships_;
     uint_vec_t vlist_;
+    uint_vec_t blist_;
     const uint_vec_t types_;
 
     double entropy_from_degree_correction_{0.};
@@ -111,10 +125,12 @@ private:
     size_t __source__{0};
     size_t __target__{0};
 
-    std::vector<mcmc_state_t> moves_ = std::vector<mcmc_state_t>(1);
+    std::vector<mcmc_move_t> moves_ = std::vector<mcmc_move_t>(1);
+    block_move_t bmove_;
 
     /// Private methods
     /* Compute stuff from scratch. */
+    void compute_b_adj_list() noexcept;
     void compute_k() noexcept;
     void compute_m() noexcept;  // Note: get_m and compute_m are different.
     void compute_m_r() noexcept;

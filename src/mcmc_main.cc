@@ -21,6 +21,7 @@
 #include "output_functions.hh"
 #include "metropolis_hasting.hh"
 #include "graph_utilities.hh"
+#include "support/util.hh"
 #include "config.hh"
 
 namespace po = boost::program_options;
@@ -43,6 +44,7 @@ int main(int argc, char const *argv[]) {
     size_t steps_await;
     bool randomize = false;
     bool maximize = false;
+    bool merge = false;
     std::string cooling_schedule;
     float_vec_t cooling_schedule_kwargs(2, 0);
     size_t seed = 0;
@@ -81,6 +83,8 @@ int main(int argc, char const *argv[]) {
              "The parameter epsilon for faster vertex proposal moves (in Tiago Peixoto's prescription).")
             ("randomize,r",
              "Randomize initial block state.")
+            ("merge,g",
+             "Perform agglomerative merges to the initial block state.")
             ("seed,d", po::value<size_t>(&seed),
              "Seed of the pseudo random number generator (Mersenne-twister 19937). A random seed is used if seed is not specified.")
             ("help,h", "Produce this help message.");
@@ -204,6 +208,9 @@ int main(int argc, char const *argv[]) {
     }
     if (var_map.count("randomize") > 0) {
         randomize = true;
+    }
+    if (var_map.count("merge") > 0) {
+        merge = true;
     }
     if (var_map.count("seed") == 0) {
         // seeding based on the clock
@@ -330,16 +337,6 @@ int main(int argc, char const *argv[]) {
     const adj_list_t adj_list = edge_to_adj(edge_list, N);
     edge_list.clear();
 
-    // blockmodel
-    blockmodel_t blockmodel(memberships_init, types_init, g, KA, KB, epsilon, &adj_list);
-    memberships_init.clear();
-    types_init.clear();
-    if (randomize) {
-        blockmodel.shuffle_bisbm(engine, NA, NB);
-    } else {
-        blockmodel.init_bisbm();
-    }
-    int_mat_t m = *blockmodel.get_m();
     // Bind proper Metropolis-Hasting algorithm
     // Originally, we provided three modes: marginalizing, estimating, and annealing
     // But we wanted to stay fit. Now only annealing applies.
@@ -351,40 +348,64 @@ int main(int argc, char const *argv[]) {
         return 1; // not implemented error
     }
 
-    /* ~~~~~ Logging ~~~~~~~*/
-#if LOGGING == 0
-    std::clog << "edge_list_path: " << edge_list_path << "\n";
-    std::clog << "initial affinity matrix:\n";
-    output_mat<int_mat_t>(m, std::clog);
-    std::clog << "sizes (g=" << n.size() << "): ";
-    for (auto const &it: n) std::clog << it << " ";
-    std::clog << "\n";
-    std::clog << "burn_in: " << burn_in << "\n";
-    std::clog << "sampling_steps: " << sampling_steps << "\n";
-    std::clog << "sampling_frequency: " << sampling_frequency << "\n";
-    std::clog << "steps_await: " << steps_await << "\n";
-    std::clog << "epsilon: " << epsilon << "\n";
-    if (randomize) { std::clog << "randomize: true\n"; }
-    else { std::clog << "randomize: false\n"; }
+    //blockmodel for the blocks
+    if (merge) {
+        std::iota(memberships_init.begin(), memberships_init.end(), 0);
+        blockmodel_t blockmodel(memberships_init, types_init, y[0] + y[1], y[0], y[1], epsilon, &adj_list);
+        blockmodel.init_bisbm();
 
-    std::clog << "num_vertice_types: (y=" << y.size() << "): ";
-    for (auto const &it: y) std::clog << it << " ";
-    std::clog << "\n";
+        int_vec_t ka_s;
+        int_vec_t kb_s;
+        std::clog << "(NA, KA, NB, KB) = " << NA << ", " << KA << ", " << NB << ", " << KB << "\n";
+        std::tie(ka_s, kb_s) = geospace(NA, KA, NB, KB, 1.01);
+        output_vec(ka_s, std::clog);
+        output_vec(kb_s, std::clog);
 
-    std::clog << "multipartite_blocks: (z=" << z.size() << "): ";
+        for (size_t i = 0; i < ka_s.size() - 1; ++i) {
+            size_t diff_a = - (ka_s[i + 1] - ka_s[i]);
+            size_t diff_b = - (kb_s[i + 1] - kb_s[i]);
+            std::clog << "Merge from (" << ka_s[i] << ", " << kb_s[i] << ") to (" << ka_s[i + 1] << ", " << kb_s[i + 1] << "); \n";
+            blockmodel.agg_merge(engine, diff_a, diff_b, 100);
 
-    for (auto const &it: z) std::clog << it << " ";
-    std::clog << "\n";
+            if (cooling_schedule == "exponential") {
+                algorithm->anneal(blockmodel, &exponential_schedule, cooling_schedule_kwargs, sampling_steps,
+                                         steps_await, engine);
+            }
+            if (cooling_schedule == "linear") {
+                algorithm->anneal(blockmodel, &linear_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
+                                         engine);
+            }
+            if (cooling_schedule == "logarithmic") {
+                algorithm->anneal(blockmodel, &logarithmic_schedule, cooling_schedule_kwargs, sampling_steps,
+                                         steps_await, engine);
+            }
+            if (cooling_schedule == "constant") {
+                algorithm->anneal(blockmodel, &constant_schedule, cooling_schedule_kwargs, sampling_steps,
+                                         steps_await, engine);
+            }
+            if (i != ka_s.size() - 1) {
+                if (cooling_schedule == "abrupt_cool") {
+                    algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, NA + NB,
+                                      steps_await, engine);
+                }
+            }
 
-    std::clog << "cooling_schedule: " << cooling_schedule << "\n";
-    std::clog << "cooling_schedule_kwargs: ";
-    output_vec<float_vec_t>(cooling_schedule_kwargs);
-    std::clog << "seed: " << seed << "\n";
-#endif
-    /* ~~~~~ Actual algorithm ~~~~~~~*/
-    double rate = 0;
-    uint_mat_t marginal(adj_list.size(), uint_vec_t(g, 0));
-    if (maximize) {
+        }
+        if (cooling_schedule == "abrupt_cool") {
+            algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, sampling_steps,
+                              steps_await, engine);
+        }
+        output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
+    } else {
+        blockmodel_t blockmodel(memberships_init, types_init, g, KA, KB, epsilon, &adj_list);
+        memberships_init.clear();
+        types_init.clear();
+        if (randomize) {
+            blockmodel.shuffle_bisbm(engine, NA, NB);
+        } else {
+            blockmodel.init_bisbm();
+        }
+        double rate = 0;
         if (cooling_schedule == "exponential") {
             rate = algorithm->anneal(blockmodel, &exponential_schedule, cooling_schedule_kwargs, sampling_steps,
                                      steps_await, engine);
@@ -407,6 +428,10 @@ int main(int argc, char const *argv[]) {
         }
         output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
         std::clog << "acceptance ratio " << rate << "\n";
+
     }
+
+
     return 0;
+
 }

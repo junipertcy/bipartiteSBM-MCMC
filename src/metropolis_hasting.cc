@@ -41,7 +41,7 @@ double abrupt_cool_schedule(size_t t, float_vec_t cooling_schedule_kwargs) noexc
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 inline bool metropolis_hasting::step(blockmodel_t& blockmodel, size_t vtx, double temperature,
         std::mt19937& engine) noexcept {
-    moves_ = sample_proposal_distribution(std::move(blockmodel), vtx, engine);
+    moves_ = sample_proposal_distribution(blockmodel, vtx, engine);
     double a{0.};
     double dS = transition_ratio(blockmodel, moves_);
     if (temperature == 0.) {
@@ -76,9 +76,7 @@ double metropolis_hasting::anneal(
     auto all_sweeps = size_t(duration / num_nodes);
     double temperature{1};
 
-    std::vector< std::vector<size_t> >& adj_list = blockmodel.get_adj_list();
     uint_vec_t& vlist = blockmodel.get_vlist();
-
     for (size_t sweep = 0; sweep < all_sweeps; ++sweep) {
         std::shuffle(vlist.begin(), vlist.end(), engine);
 
@@ -87,7 +85,7 @@ double metropolis_hasting::anneal(
             temperature = cooling_schedule(current_step + vi, cooling_schedule_kwargs);
             if (step(blockmodel, vlist[vi], temperature, engine)) {
                 ++accepted_steps;
-                if (blockmodel.get_entropy() < entropy_min_) {
+                if (blockmodel.get_entropy() < entropy_min_) {  // TODO: this can be improved
                     entropy_min_ = blockmodel.get_entropy();
                     u = 0;
                 }
@@ -107,7 +105,7 @@ double metropolis_hasting::anneal(
 }
 
 inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blockmodel,
-                                     const std::vector<mcmc_state_t> &moves) noexcept {
+                                     const std::vector<mcmc_move_t> &moves) noexcept {
     v_ = moves[0].vertex;
     r_ = moves[0].source;
     s_ = moves[0].target;
@@ -116,7 +114,6 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
         accu_r_ = 1.;
         return 0.;
     }
-
     double accu0 = 0.;
     double accu1 = 0.;
     double entropy0 = 0.;
@@ -125,7 +122,6 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
     size_t KA = blockmodel.get_KA();
     size_t KB = blockmodel.get_KB();
     double K = KA + KB;
-
     if ((r_ < KA && s_ >= KA) || (r_ >= KA && s_ < KA)) {
         return std::numeric_limits<double>::infinity();
     }
@@ -133,14 +129,12 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
     double epsilon = blockmodel.get_epsilon();
     ki = blockmodel.get_k(v_);
     int deg = blockmodel.get_degree(v_);
-
     m0 = blockmodel.get_m();
     padded_m0 = blockmodel.get_m_r();
-
     n_r = blockmodel.get_n_r();
     int INT_n_r_r = n_r->at(r_);
-    int INT_n_r_s = n_r->at(s_);
 
+    int INT_n_r_s = n_r->at(s_);
     eta_rk = blockmodel.get_eta_rk_();
     int INT_eta_rk_r_deg = eta_rk->at(r_)[deg];
     int INT_eta_rk_s_deg = eta_rk->at(s_)[deg];
@@ -155,7 +149,6 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
 
     int INT_padded_m0s = padded_m0->at(s_);
     int INT_padded_m1s = INT_padded_m0s + deg;
-
 
     auto criterion = (r_ < KA) ? [](size_t a, size_t k) { return a >= k; } : [](size_t a, size_t k) { return a < k; };
     for (auto const& _k: *ki ){
@@ -206,7 +199,7 @@ inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blo
 // virtual functions implementation
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /* Implementation for the single vertex change (SBM) */
-inline std::vector<mcmc_state_t> mh_tiago::sample_proposal_distribution(blockmodel_t&& blockmodel,
+inline std::vector<mcmc_move_t> mh_tiago::sample_proposal_distribution(blockmodel_t& blockmodel,
                                                                  size_t vtx,
                                                                  std::mt19937& engine) const noexcept {
     return blockmodel.single_vertex_change(engine, vtx);
