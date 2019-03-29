@@ -109,7 +109,6 @@ uint_vec_t& blockmodel_t::get_vlist() noexcept { return vlist_; }
 
 void blockmodel_t::agg_merge(std::mt19937 &engine, int diff_a, int diff_b, int nm) noexcept {
     std::vector<std::set<size_t>> accepted_set_vec;
-//    accepted_queue.resize(diff_a + diff_b);
 
     typedef std::pair<double, int> pi;
     std::priority_queue<pi, vector<pi>, greater<> > q;
@@ -147,7 +146,7 @@ void blockmodel_t::agg_merge(std::mt19937 &engine, int diff_a, int diff_b, int n
         _set.insert(mv.target);
         _set.insert(mv.source);
         if (mv.source < KA_ && diff_a != 0) {
-            identifier_a = std::to_string(mv.source) + "->" + std::to_string(mv.target);
+            identifier_a = std::to_string(mv.source) + ">" + std::to_string(mv.target);
             if (set_str.count(identifier_a) == 0 && !(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
                 diff_a -= 1;
                 a += 1;
@@ -166,7 +165,7 @@ void blockmodel_t::agg_merge(std::mt19937 &engine, int diff_a, int diff_b, int n
                 set_e.insert(mv.target);
             }
         } else if (mv.source >= KA_ && diff_b != 0) {
-            identifier_b = std::to_string(mv.source) + "->" + std::to_string(mv.target);
+            identifier_b = std::to_string(mv.source) + ">" + std::to_string(mv.target);
             if (set_str.count(identifier_b) == 0 && !(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
                 diff_b -= 1;
                 b += 1;
@@ -210,7 +209,7 @@ inline void blockmodel_t::compute_b_adj_list() noexcept {
     }
 }
 
-double blockmodel_t::compute_dS(mcmc_move_t move) noexcept {
+double blockmodel_t::compute_dS(mcmc_move_t& move) noexcept {
     size_t v_ = move.vertex;
     size_t r_ = move.source;
     size_t s_ = move.target;
@@ -255,7 +254,7 @@ double blockmodel_t::compute_dS(mcmc_move_t move) noexcept {
     return entropy1 - entropy0;
 }
 
-double blockmodel_t::compute_dS(block_move_t move) noexcept {
+inline double blockmodel_t::compute_dS(block_move_t& move) noexcept {
     size_t r_ = move.source;
     size_t s_ = move.target;
 
@@ -271,8 +270,6 @@ double blockmodel_t::compute_dS(block_move_t move) noexcept {
     auto citer_m0_s = m_.at(s_).begin();
 
     int INT_padded_m0r = m_r_.at(r_);
-
-
     int INT_padded_m0s = m_r_.at(s_);
     int INT_padded_m1 = INT_padded_m0r + INT_padded_m0s;
 
@@ -342,7 +339,7 @@ bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_move_t> &moves, double dS) 
     return true;
 }
 
-bool blockmodel_t::apply_block_moves(std::set<size_t>& impacted, std::vector<std::set<size_t>>& accepted) noexcept {
+inline bool blockmodel_t::apply_block_moves(std::set<size_t>& impacted, std::vector<std::set<size_t>>& accepted) noexcept {
     std::map<int, int> n2o_map;
     for (size_t i = 0; i < memberships_.size(); ++i) {
         n2o_map[i] = -1;
@@ -383,7 +380,7 @@ bool blockmodel_t::apply_block_moves(std::set<size_t>& impacted, std::vector<std
     K_ =  KA_ + KB_;
 
     if (n != K_) {
-        std::cerr << "inconsistency 1;\n";
+        std::cerr << "[sanity check] inconsistency! \n";
         std::clog << "KA_: " << KA_ << "; KB_: " << KB_ << "; n: " << n << "; na_: " << na_ << "; nb_: " << nb_ << "\n";
         exit(0);
     }
@@ -422,7 +419,7 @@ std::vector<mcmc_move_t> blockmodel_t::single_vertex_change(std::mt19937 &engine
     return moves_;
 }
 
-block_move_t& blockmodel_t::single_block_change(std::mt19937 &engine, size_t src) noexcept {
+inline block_move_t& blockmodel_t::single_block_change(std::mt19937 &engine, size_t src) noexcept {
     if ((src < KA_ && KA_ == 1) || (src >= KA_ && KB_ == 1)) {
         bmove_.source = src;
         bmove_.target = src;

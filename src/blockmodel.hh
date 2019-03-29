@@ -56,9 +56,9 @@ public:
 
     void agg_merge(std::mt19937 &engine, int diff_a, int diff_b, int nm) noexcept;
 
-    double compute_dS(mcmc_move_t move) noexcept;
+    double compute_dS(mcmc_move_t& move) noexcept;
 
-    double compute_dS(block_move_t move) noexcept;
+    double compute_dS(block_move_t& move) noexcept;
 
     std::vector< std::vector<size_t> >& get_adj_list() noexcept;
 
