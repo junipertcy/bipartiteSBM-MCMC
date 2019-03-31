@@ -132,14 +132,11 @@ std::tuple<std::vector<int>, std::vector<int>> geospace(T start_a_in, T end_a_in
     size_t n =  geospaced_a.size();
 
     double r_ = std::pow(start_b / end_b, 1. / (n - 1));
-    for (size_t idx = 0; idx < n; ++idx) {
+    for (size_t idx = 0; idx < n - 1; ++idx) {
         int b = floor(start_b / std::pow(r_, idx));
-        if (b < end_b) {
-            geospaced_b.push_back(end_b);
-        } else {
-            geospaced_b.push_back(b);
-        }
+        geospaced_b.push_back(b);
     }
+    geospaced_b.push_back(end_b);
     if (!reverse) {
         return std::make_tuple(geospaced_a, geospaced_b);
     } else {

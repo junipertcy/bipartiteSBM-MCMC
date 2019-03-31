@@ -2,7 +2,7 @@
 #include "graph_utilities.hh"
 
 
-bool load_memberships(uint_vec_t &memberships, const std::string membership_path) {
+bool load_memberships(uint_vec_t &memberships, const std::string& membership_path) {
     memberships.clear();
     std::ifstream beliefs_file(membership_path.c_str());
     if (!beliefs_file.is_open()) return false;
@@ -17,7 +17,7 @@ bool load_memberships(uint_vec_t &memberships, const std::string membership_path
     return true;
 }
 
-bool load_edge_list(edge_list_t &edge_list, const std::string edge_list_path) {
+bool load_edge_list(edge_list_t &edge_list, const std::string& edge_list_path) {
     edge_list.clear();
     std::ifstream edge_list_file(edge_list_path.c_str());
     if (!edge_list_file.is_open()) return false;

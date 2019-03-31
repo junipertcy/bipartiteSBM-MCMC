@@ -100,7 +100,6 @@ double metropolis_hasting::anneal(
             return double(accepted_steps) / double((sweep + 1) * num_nodes);
         }
     }
-    blockmodel.summary();
     return double(accepted_steps) / double(duration);  // TODO: check these numbers
 }
 

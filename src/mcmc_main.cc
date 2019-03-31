@@ -275,7 +275,7 @@ int main(int argc, char const *argv[]) {
         for (auto const &it: n) accu += it;
         if (mb.size() != accu) {
             std::cerr << "[error] input vector size of memberships is different from the number of nodes \n";
-            output_vec(mb, std::clog);
+            output_vec(mb, std::cerr);
             std::cerr << "#mb = " << mb.size() << "; while #nodes = " << accu << ". \n";
             return 1;
         }
@@ -346,16 +346,11 @@ int main(int argc, char const *argv[]) {
 
         int_vec_t ka_s;
         int_vec_t kb_s;
-        std::clog << "(NA, KA, NB, KB) = " << NA << ", " << KA << ", " << NB << ", " << KB << "\n";
         std::tie(ka_s, kb_s) = geospace(NA, KA, NB, KB, 1.01);
-        output_vec(ka_s, std::clog);
-        output_vec(kb_s, std::clog);
 
         for (size_t i = 0; i < ka_s.size() - 1; ++i) {
             size_t diff_a = -(ka_s[i + 1] - ka_s[i]);
             size_t diff_b = -(kb_s[i + 1] - kb_s[i]);
-            std::clog << "Merge from (" << ka_s[i] << ", " << kb_s[i] << ") to (" << ka_s[i + 1] << ", " << kb_s[i + 1]
-                      << "); \n";
             blockmodel.agg_merge(engine, diff_a, diff_b, 10);
             if (i != ka_s.size() - 2) {
                 if (cooling_schedule == "abrupt_cool") {
@@ -371,37 +366,87 @@ int main(int argc, char const *argv[]) {
                           steps_await, engine);
         output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
     } else {
-        blockmodel_t blockmodel(memberships_init, types_init, KA + KB, KA, KB, epsilon, &adj_list);
-        memberships_init.clear();
-        types_init.clear();
-        if (randomize) {
-            blockmodel.shuffle_bisbm(engine, NA, NB);
-        } else {
+        size_t ka{0};
+        size_t kb{0};
+        for (size_t t = 0; t < NA + NB; ++t) {
+            if (types_init[t] == 0 && memberships_init[t] > ka) {
+                ka = memberships_init[t];
+            } else if (types_init[t] == 1 && memberships_init[t] > kb) {
+                kb = memberships_init[t];
+            }
+        }
+        kb -= ka;
+        ka += 1;
+        int diff_a = ka - KA;
+        int diff_b = kb - KB;
+        if (diff_a != 0 || diff_b != 0) {
+            blockmodel_t blockmodel(memberships_init, types_init, ka + kb, ka, kb, epsilon, &adj_list);
+            memberships_init.clear();
+            types_init.clear();
             blockmodel.init_bisbm();
+            if (diff_a >= 0 && diff_b >= 0) {
+                int_vec_t ka_s;
+                int_vec_t kb_s;
+                std::tie(ka_s, kb_s) = geospace(KA + diff_a, KA, KB + diff_b, KB, 1.01);
+                if (ka_s.size() == 1) {
+                    blockmodel.agg_merge(engine, diff_a, diff_b, 10);
+                }
+                for (size_t i = 0; i < ka_s.size() - 1; ++i) {
+                    diff_a = -(ka_s[i + 1] - ka_s[i]);
+                    diff_b = -(kb_s[i + 1] - kb_s[i]);
+                    blockmodel.agg_merge(engine, diff_a, diff_b, 10);
+                    if (i != ka_s.size() - 2) {
+                        if (cooling_schedule == "abrupt_cool") {
+                            algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, (NA + NB) * 1,
+                                              steps_await, engine);
+                        } else {
+                            std::cerr << "Only abrupt cooling annealing is supported.";
+                            return 1;
+                        }
+                    }
+                }
+            } else {
+                blockmodel.agg_merge(engine, diff_a, diff_b, 100);
+            }
+            algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, sampling_steps,
+                              steps_await, engine);
+            output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
+        } else {
+            blockmodel_t blockmodel(memberships_init, types_init, KA + KB, KA, KB, epsilon, &adj_list);
+
+            memberships_init.clear();
+            types_init.clear();
+            if (randomize) {
+                blockmodel.shuffle_bisbm(engine, NA, NB);
+            } else {
+                blockmodel.init_bisbm();
+            }
+            double rate = 0;
+            if (cooling_schedule == "exponential") {
+                rate = algorithm->anneal(blockmodel, &exponential_schedule, cooling_schedule_kwargs, sampling_steps,
+                                         steps_await, engine);
+            }
+            if (cooling_schedule == "linear") {
+                rate = algorithm->anneal(blockmodel, &linear_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
+                                         engine);
+            }
+            if (cooling_schedule == "logarithmic") {
+                rate = algorithm->anneal(blockmodel, &logarithmic_schedule, cooling_schedule_kwargs, sampling_steps,
+                                         steps_await, engine);
+            }
+            if (cooling_schedule == "constant") {
+                rate = algorithm->anneal(blockmodel, &constant_schedule, cooling_schedule_kwargs, sampling_steps,
+                                         steps_await, engine);
+            }
+            if (cooling_schedule == "abrupt_cool") {
+                rate = algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, sampling_steps,
+                                         steps_await, engine);
+            }
+            std::clog << "acceptance ratio " << rate << "\n";
+            output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
         }
-        double rate = 0;
-        if (cooling_schedule == "exponential") {
-            rate = algorithm->anneal(blockmodel, &exponential_schedule, cooling_schedule_kwargs, sampling_steps,
-                                     steps_await, engine);
-        }
-        if (cooling_schedule == "linear") {
-            rate = algorithm->anneal(blockmodel, &linear_schedule, cooling_schedule_kwargs, sampling_steps, steps_await,
-                                     engine);
-        }
-        if (cooling_schedule == "logarithmic") {
-            rate = algorithm->anneal(blockmodel, &logarithmic_schedule, cooling_schedule_kwargs, sampling_steps,
-                                     steps_await, engine);
-        }
-        if (cooling_schedule == "constant") {
-            rate = algorithm->anneal(blockmodel, &constant_schedule, cooling_schedule_kwargs, sampling_steps,
-                                     steps_await, engine);
-        }
-        if (cooling_schedule == "abrupt_cool") {
-            rate = algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, sampling_steps,
-                                     steps_await, engine);
-        }
-        output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
-        std::clog << "acceptance ratio " << rate << "\n";
+
     }
+
     return 0;
 }

@@ -56,15 +56,21 @@ public:
 
     void agg_merge(std::mt19937 &engine, int diff_a, int diff_b, int nm) noexcept;
 
+    void agg_split(std::mt19937 &engine, bool type, int nm) noexcept;
+
     double compute_dS(mcmc_move_t& move) noexcept;
 
     double compute_dS(block_move_t& move) noexcept;
+
+    double compute_dS(size_t mb, std::vector<bool>& split_move) noexcept;
 
     std::vector< std::vector<size_t> >& get_adj_list() noexcept;
 
     void shuffle_bisbm(std::mt19937& engine, size_t NA, size_t NB) noexcept;
 
     void init_bisbm() noexcept;
+
+    void apply_split_moves(std::vector<mcmc_move_t>& moves) noexcept;
 
     bool apply_mcmc_moves(std::vector<mcmc_move_t>& moves, double dS) noexcept;
 
@@ -101,6 +107,7 @@ private:
     uint_vec_t memberships_;
     uint_vec_t vlist_;
     uint_vec_t blist_;
+    std::vector<bool> splitter_;
     const uint_vec_t types_;
 
     double entropy_from_degree_correction_{0.};
