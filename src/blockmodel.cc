@@ -1,5 +1,5 @@
 #include <iostream>
-#include <queue>
+
 
 #include "blockmodel.hh"
 #include "graph_utilities.hh"  // for the is_disjoint function
@@ -45,7 +45,7 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size
 
     // initiate caches
     init_cache(num_edges_);
-    init_q_cache(1000);
+    init_q_cache(10000);
 
     double deg_factorial = 0;
     for (size_t node = 0; node < memberships.size(); ++node) {
@@ -116,80 +116,75 @@ void blockmodel_t::agg_merge(std::mt19937 &engine, int diff_a, int diff_b, int n
     if (diff_a + diff_b == 0) {
         return;
     }
-    std::vector<std::set<size_t>> accepted_set_vec;
-
-    typedef std::pair<double, int> pi;
+    accepted_set_vec_.clear();
     std::priority_queue<pi, vector<pi>, greater<> > q;
 
-    blist_.resize(K_, 0);
-    std::iota(blist_.begin(), blist_.end(), 0);
+    if (diff_a > 0 && diff_b == 0) {
+        blist_.resize(KA_, 0);
+        std::iota(blist_.begin(), blist_.end(), 0);
+    } else if (diff_a == 0 && diff_b > 0) {
+        blist_.resize(KB_, 0);
+        std::iota(blist_.begin(), blist_.end(), KA_);
+    } else {
+        blist_.resize(K_, 0);
+        std::iota(blist_.begin(), blist_.end(), 0);
+    }
 
-    std::vector<block_move_t> moves;
-    moves.resize(nm * blist_.size());
+    bmoves_.clear();
+    bmoves_.resize(nm * blist_.size());
 
     compute_b_adj_list();
+
+    std::set<std::string> set_str_;
+    std::string identifier_;
+    size_t ii{0};
     for (auto const &v: blist_) {
-        size_t index = &v - &blist_.at(0);
         for (size_t i_ = 0; i_ < nm; ++i_) {
-            moves[index * nm + i_] = single_block_change(engine, v);
-            double dS = compute_dS(moves[index * nm + i_]);
-            int idx = index * nm + i_;
-            q.push(std::make_pair(dS, idx));
+            bmove_ = single_block_change(engine, v);
+            identifier_ = std::to_string(bmove_.source) + ">" + std::to_string(bmove_.target);
+            if (set_str_.count(identifier_) == 0) {
+                bmoves_[ii] = bmove_;
+                double dS = compute_dS(bmove_);
+                q.push(std::make_pair(dS, ii));
+                set_str_.insert(identifier_);
+                ++ii;
+            }
         }
     }
-    std::set<std::string> set_str;
     std::set<size_t> set_e;
 
-    size_t a{0};
-    size_t b{0};
     block_move_t mv;
-    std::string identifier_a;
-    std::string identifier_b;
-    std::set<size_t> _set;
-
     while (diff_a + diff_b != 0 && !q.empty()) {
-        mv = moves[q.top().second];
-        _set.clear();
-        _set.insert(mv.target);
-        _set.insert(mv.source);
+        mv = bmoves_[q.top().second];
         if (mv.source < KA_ && diff_a != 0) {
-            identifier_a = std::to_string(mv.source) + ">" + std::to_string(mv.target);
-            if (set_str.count(identifier_a) == 0 && !(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
+            if (!(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
                 diff_a -= 1;
-                a += 1;
                 if (set_e.count(mv.source) == 0 && set_e.count(mv.target) == 0) {
-                    accepted_set_vec.push_back(_set);
+                    accepted_set_vec_.push_back({mv.source, mv.target});
                 } else {
-                    for (auto &_s: accepted_set_vec) {
+                    for (auto &_s: accepted_set_vec_) {
                         if (_s.count(mv.target) > 0 || _s.count(mv.source) > 0) {
                             _s.insert({mv.source, mv.target});
                             break;
                         }
                     }
                 }
-                set_str.insert(identifier_a);
-                set_e.insert(mv.source);
-                set_e.insert(mv.target);
+                set_e.insert({mv.source, mv.target});
             }
         } else if (mv.source >= KA_ && diff_b != 0) {
-            identifier_b = std::to_string(mv.source) + ">" + std::to_string(mv.target);
-            if (set_str.count(identifier_b) == 0 && !(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
+            if (!(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
                 diff_b -= 1;
-                b += 1;
                 if (set_e.count(mv.source) == 0 && set_e.count(mv.target) == 0) {
-                    accepted_set_vec.push_back(_set);
+                    accepted_set_vec_.push_back({mv.source, mv.target});
                 } else {
-                    for (auto &_s: accepted_set_vec) {
+                    for (auto &_s: accepted_set_vec_) {
                         if (_s.count(mv.target) > 0 || _s.count(mv.source) > 0) {
                             _s.insert({mv.source, mv.target});
                             break;
                         }
                     }
                 }
-
-                set_str.insert(identifier_b);
-                set_e.insert(mv.source);
-                set_e.insert(mv.target);
+                set_e.insert({mv.source, mv.target});
             }
         }
         q.pop();
@@ -197,7 +192,7 @@ void blockmodel_t::agg_merge(std::mt19937 &engine, int diff_a, int diff_b, int n
     if (q.empty()) {
         std::cerr << "queue running out \n";
     }
-    apply_block_moves(set_e, accepted_set_vec);
+    apply_block_moves(set_e, accepted_set_vec_);
 }
 
 inline void blockmodel_t::compute_b_adj_list() noexcept {
@@ -261,7 +256,7 @@ double blockmodel_t::compute_dS(mcmc_move_t &move) noexcept {
     return entropy1 - entropy0;
 }
 
-inline double blockmodel_t::compute_dS(block_move_t &move) noexcept {
+inline double blockmodel_t::compute_dS(const block_move_t& move) noexcept {
     size_t r_ = move.source;
     size_t s_ = move.target;
 
@@ -354,7 +349,7 @@ inline double blockmodel_t::compute_dS(size_t mb, std::vector<bool>& split_move)
 
 std::vector<std::vector<size_t> > &blockmodel_t::get_adj_list() noexcept { return adj_list_; }
 
-void blockmodel_t::apply_split_moves(std::vector<mcmc_move_t>& moves) noexcept {
+void blockmodel_t::apply_split_moves(const std::vector<mcmc_move_t>& moves) noexcept {
     bool rearranged = false;
     for (auto const& mv: moves) {
         __source__ = mv.source;
@@ -387,7 +382,7 @@ void blockmodel_t::apply_split_moves(std::vector<mcmc_move_t>& moves) noexcept {
     compute_eta_rk();
 }
 
-bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_move_t> &moves, double dS) noexcept {
+bool blockmodel_t::apply_mcmc_moves(const std::vector<mcmc_move_t> &moves, double dS) noexcept {
     for (auto const &mv: moves) {
         __source__ = mv.source;
         __target__ = mv.target;
@@ -434,7 +429,6 @@ bool blockmodel_t::apply_mcmc_moves(std::vector<mcmc_move_t> &moves, double dS) 
 void blockmodel_t::agg_split(std::mt19937 &engine, bool type, int nm) noexcept {
     std::vector<bool> split_mv;
 
-    typedef std::pair<double, int> pi;
     std::priority_queue<pi, vector<pi>, greater<> > q;
 
     if (!type) {  // type-a
@@ -494,7 +488,7 @@ void blockmodel_t::agg_split(std::mt19937 &engine, bool type, int nm) noexcept {
     apply_split_moves(moves);
 }
 
-inline bool blockmodel_t::apply_block_moves(std::set<size_t> &impacted, std::vector<std::set<size_t>> &accepted) noexcept {
+inline void blockmodel_t::apply_block_moves(const std::set<size_t>& impacted, const std::vector<std::set<size_t>>& accepted) noexcept {
     std::map<int, int> n2o_map;
     for (size_t i = 0; i < memberships_.size(); ++i) {
         n2o_map[i] = -1;
@@ -538,7 +532,6 @@ inline bool blockmodel_t::apply_block_moves(std::set<size_t> &impacted, std::vec
         exit(0);
     }
     init_bisbm();
-    return true;
 }
 
 std::vector<mcmc_move_t> blockmodel_t::single_vertex_change(std::mt19937 &engine, size_t vtx) noexcept {
@@ -595,7 +588,6 @@ inline block_move_t &blockmodel_t::single_block_change(std::mt19937 &engine, siz
         bmove_.source = __target__;
         bmove_.target = src;
     }
-
 
     return bmove_;
 }

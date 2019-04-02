@@ -7,6 +7,7 @@
 #include <algorithm> // std::shuffle
 #include <vector>
 #include <map>
+#include <queue>
 #include "types.hh"
 #include "output_functions.hh"
 
@@ -60,7 +61,7 @@ public:
 
     double compute_dS(mcmc_move_t& move) noexcept;
 
-    double compute_dS(block_move_t& move) noexcept;
+    double compute_dS(const block_move_t& move) noexcept;
 
     double compute_dS(size_t mb, std::vector<bool>& split_move) noexcept;
 
@@ -70,11 +71,11 @@ public:
 
     void init_bisbm() noexcept;
 
-    void apply_split_moves(std::vector<mcmc_move_t>& moves) noexcept;
+    void apply_split_moves(const std::vector<mcmc_move_t>& moves) noexcept;
 
-    bool apply_mcmc_moves(std::vector<mcmc_move_t>& moves, double dS) noexcept;
+    bool apply_mcmc_moves(const std::vector<mcmc_move_t>& moves, double dS) noexcept;
 
-    bool apply_block_moves(std::set<size_t>& impacted, std::vector<std::set<size_t>>& accepted) noexcept;
+    void apply_block_moves(const std::set<size_t>& impacted, const std::vector<std::set<size_t>>& accepted) noexcept;
 
     std::vector<mcmc_move_t> single_vertex_change(std::mt19937& engine, size_t vtx) noexcept;
 
@@ -133,7 +134,9 @@ private:
     size_t __target__{0};
 
     std::vector<mcmc_move_t> moves_ = std::vector<mcmc_move_t>(1);
+    std::vector<block_move_t> bmoves_;
     block_move_t bmove_;
+    std::vector<std::set<size_t>> accepted_set_vec_;
 
     /// Private methods
     /* Compute stuff from scratch. */
@@ -144,5 +147,6 @@ private:
     void compute_eta_rk() noexcept;
     void compute_n_r() noexcept;
 };
+
 
 #endif // BLOCKMODEL_H

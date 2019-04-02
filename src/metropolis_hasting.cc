@@ -75,7 +75,6 @@ double metropolis_hasting::anneal(
     entropy_min_ = std::numeric_limits<double>::infinity();
     auto all_sweeps = size_t(duration / num_nodes);
     double temperature{1};
-
     uint_vec_t& vlist = blockmodel.get_vlist();
     for (size_t sweep = 0; sweep < all_sweeps; ++sweep) {
         std::shuffle(vlist.begin(), vlist.end(), engine);
@@ -95,8 +94,6 @@ double metropolis_hasting::anneal(
             }
         }
         if (u >= steps_await) {
-            std::clog << "algorithm stops after: " << sweep << " sweeps. \n";
-            blockmodel.summary();
             return double(accepted_steps) / double((sweep + 1) * num_nodes);
         }
     }

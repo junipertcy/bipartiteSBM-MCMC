@@ -18,6 +18,8 @@ using uint_mat_t = std::vector< std::vector<unsigned int> >;
 using int_mat_t = std::vector< std::vector<int> >;
 using float_mat_t = std::vector< std::vector<float> >;
 
+using pi = std::pair<double, int>;
+
 using mcmc_move_t = struct mcmc_move_t
 {
     size_t vertex;

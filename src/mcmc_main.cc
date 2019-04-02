@@ -335,6 +335,8 @@ int main(int argc, char const *argv[]) {
     std::unique_ptr<metropolis_hasting> algorithm;
     algorithm = std::make_unique<mh_tiago>();
 
+    float_vec_t agg_merge_kwargs;
+    agg_merge_kwargs.resize(1, 0.);
     //blockmodel for the blocks
     if (merge) {
         std::iota(memberships_init.begin(), memberships_init.end(), 0);
@@ -354,7 +356,7 @@ int main(int argc, char const *argv[]) {
             blockmodel.agg_merge(engine, diff_a, diff_b, 10);
             if (i != ka_s.size() - 2) {
                 if (cooling_schedule == "abrupt_cool") {
-                    algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, (NA + NB) * 1,
+                    algorithm->anneal(blockmodel, &abrupt_cool_schedule, agg_merge_kwargs, (NA + NB) * 1,
                                       steps_await, engine);
                 } else {
                     std::cerr << "Only abrupt cooling annealing is supported.";
@@ -364,6 +366,7 @@ int main(int argc, char const *argv[]) {
         }
         algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, sampling_steps,
                           steps_await, engine);
+        blockmodel.summary();
         output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
     } else {
         size_t ka{0};
@@ -397,7 +400,7 @@ int main(int argc, char const *argv[]) {
                     blockmodel.agg_merge(engine, diff_a, diff_b, 10);
                     if (i != ka_s.size() - 2) {
                         if (cooling_schedule == "abrupt_cool") {
-                            algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, (NA + NB) * 1,
+                            algorithm->anneal(blockmodel, &abrupt_cool_schedule, agg_merge_kwargs, (NA + NB) * 1,
                                               steps_await, engine);
                         } else {
                             std::cerr << "Only abrupt cooling annealing is supported.";
@@ -410,6 +413,7 @@ int main(int argc, char const *argv[]) {
             }
             algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, sampling_steps,
                               steps_await, engine);
+            blockmodel.summary();
             output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
         } else {
             blockmodel_t blockmodel(memberships_init, types_init, KA + KB, KA, KB, epsilon, &adj_list);
@@ -443,6 +447,7 @@ int main(int argc, char const *argv[]) {
                                          steps_await, engine);
             }
             std::clog << "acceptance ratio " << rate << "\n";
+            blockmodel.summary();
             output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
         }
 
