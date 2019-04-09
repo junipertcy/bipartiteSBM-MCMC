@@ -26,7 +26,6 @@
 
 namespace po = boost::program_options;
 
-
 int main(int argc, char const *argv[]) {
     /* ~~~~~ Program options ~~~~~~~*/
     size_t KA{0};

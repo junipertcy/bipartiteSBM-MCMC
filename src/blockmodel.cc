@@ -15,7 +15,7 @@ using namespace std;
 blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size_t g, size_t KA,
                            size_t KB, double epsilon, const adj_list_t *adj_list_ptr) :
         adj_list_ptr_(adj_list_ptr),
-        types_(std::move(types)) {
+        types_(move(types)) {
     KA_ = KA;
     KB_ = KB;
     K_ = KA + KB;
@@ -41,7 +41,7 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size
         vlist_[j] = j;
     }
     num_edges_ /= 2;
-    max_degree_ = *std::max_element(deg_.begin(), deg_.end());
+    max_degree_ = *max_element(deg_.begin(), deg_.end());
 
     // initiate caches
     init_cache(num_edges_);
@@ -104,7 +104,7 @@ size_t blockmodel_t::get_KB() const noexcept { return KB_; }
 
 uint_vec_t &blockmodel_t::get_vlist() noexcept { return vlist_; }
 
-void blockmodel_t::agg_merge(std::mt19937 &engine, int diff_a, int diff_b, int nm) noexcept {
+void blockmodel_t::agg_merge(mt19937 &engine, int diff_a, int diff_b, int nm) noexcept {
     while (diff_a < 0) {
         agg_split(engine, false, nm);
         diff_a++;
@@ -117,80 +117,90 @@ void blockmodel_t::agg_merge(std::mt19937 &engine, int diff_a, int diff_b, int n
         return;
     }
     accepted_set_vec_.clear();
-    std::priority_queue<pi, vector<pi>, greater<> > q;
 
     if (diff_a > 0 && diff_b == 0) {
         blist_.resize(KA_, 0);
-        std::iota(blist_.begin(), blist_.end(), 0);
+        iota(blist_.begin(), blist_.end(), 0);
     } else if (diff_a == 0 && diff_b > 0) {
         blist_.resize(KB_, 0);
-        std::iota(blist_.begin(), blist_.end(), KA_);
+        iota(blist_.begin(), blist_.end(), KA_);
     } else {
         blist_.resize(K_, 0);
-        std::iota(blist_.begin(), blist_.end(), 0);
+        iota(blist_.begin(), blist_.end(), 0);
     }
 
     bmoves_.clear();
     bmoves_.resize(nm * blist_.size());
 
     compute_b_adj_list();
-
-    std::set<std::string> set_str_;
-    std::string identifier_;
+    priority_queue<pi, vector<pi>, greater<> > q;
+    set<string> set_str_;
+    string identifier_;
     size_t ii{0};
-    for (auto const &v: blist_) {
-        for (size_t i_ = 0; i_ < nm; ++i_) {
-            bmove_ = single_block_change(engine, v);
-            identifier_ = std::to_string(bmove_.source) + ">" + std::to_string(bmove_.target);
-            if (set_str_.count(identifier_) == 0) {
-                bmoves_[ii] = bmove_;
-                double dS = compute_dS(bmove_);
-                q.push(std::make_pair(dS, ii));
-                set_str_.insert(identifier_);
-                ++ii;
-            }
-        }
-    }
-    std::set<size_t> set_e;
-
+    set<size_t> set_e;
     block_move_t mv;
-    while (diff_a + diff_b != 0 && !q.empty()) {
-        mv = bmoves_[q.top().second];
-        if (mv.source < KA_ && diff_a != 0) {
-            if (!(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
-                diff_a -= 1;
-                if (set_e.count(mv.source) == 0 && set_e.count(mv.target) == 0) {
-                    accepted_set_vec_.push_back({mv.source, mv.target});
-                } else {
-                    for (auto &_s: accepted_set_vec_) {
-                        if (_s.count(mv.target) > 0 || _s.count(mv.source) > 0) {
-                            _s.insert({mv.source, mv.target});
-                            break;
-                        }
-                    }
+
+    bool minS{true};
+    while (minS) {
+        q = priority_queue<pi, vector<pi>, greater<> >();
+        set_str_.clear();
+        ii = 0;
+        for (auto const &v: blist_) {
+            for (size_t i_ = 0; i_ < nm; ++i_) {
+                bmove_ = single_block_change(engine, v);
+                identifier_ = to_string(bmove_.source) + ">" + to_string(bmove_.target);
+                if (set_str_.count(identifier_) == 0) {
+                    bmoves_[ii] = bmove_;
+                    double dS = compute_dS(bmove_);
+                    q.push(make_pair(dS, ii));
+                    set_str_.insert(identifier_);
+                    ++ii;
                 }
-                set_e.insert({mv.source, mv.target});
-            }
-        } else if (mv.source >= KA_ && diff_b != 0) {
-            if (!(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
-                diff_b -= 1;
-                if (set_e.count(mv.source) == 0 && set_e.count(mv.target) == 0) {
-                    accepted_set_vec_.push_back({mv.source, mv.target});
-                } else {
-                    for (auto &_s: accepted_set_vec_) {
-                        if (_s.count(mv.target) > 0 || _s.count(mv.source) > 0) {
-                            _s.insert({mv.source, mv.target});
-                            break;
-                        }
-                    }
-                }
-                set_e.insert({mv.source, mv.target});
             }
         }
-        q.pop();
+        set_e.clear();
+        while (diff_a + diff_b != 0 && !q.empty()) {
+            mv = bmoves_[q.top().second];
+            if (mv.source < KA_ && diff_a != 0) {
+                if (!(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
+                    diff_a -= 1;
+                    if (set_e.count(mv.source) == 0 && set_e.count(mv.target) == 0) {
+                        accepted_set_vec_.push_back({mv.source, mv.target});
+                    } else {
+                        for (auto &_s: accepted_set_vec_) {
+                            if (_s.count(mv.target) > 0 || _s.count(mv.source) > 0) {
+                                _s.insert({mv.source, mv.target});
+                                break;
+                            }
+                        }
+                    }
+                    set_e.insert({mv.source, mv.target});
+                }
+            } else if (mv.source >= KA_ && diff_b != 0) {
+                if (!(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
+                    diff_b -= 1;
+                    if (set_e.count(mv.source) == 0 && set_e.count(mv.target) == 0) {
+                        accepted_set_vec_.push_back({mv.source, mv.target});
+                    } else {
+                        for (auto &_s: accepted_set_vec_) {
+                            if (_s.count(mv.target) > 0 || _s.count(mv.source) > 0) {
+                                _s.insert({mv.source, mv.target});
+                                break;
+                            }
+                        }
+                    }
+                    set_e.insert({mv.source, mv.target});
+                }
+            }
+            minS = false;
+            if (q.top().first == numeric_limits<double>::infinity()) {
+                minS = true;
+            }
+            q.pop();
+        }
     }
     if (q.empty()) {
-        std::cerr << "queue running out \n";
+        cerr << "queue running out \n";
     }
     apply_block_moves(set_e, accepted_set_vec_);
 }
@@ -198,7 +208,7 @@ void blockmodel_t::agg_merge(std::mt19937 &engine, int diff_a, int diff_b, int n
 inline void blockmodel_t::compute_b_adj_list() noexcept {
     b_adj_list_.resize(K_);
     for (size_t i = 0; i < K_; ++i) {
-        b_adj_list_[i].resize(std::count_if(m_[i].begin(), m_[i].end(), [](int i) { return i > 0; }), 0);
+        b_adj_list_[i].resize(count_if(m_[i].begin(), m_[i].end(), [](int i) { return i > 0; }), 0);
     }
     for (size_t node = 0; node < K_; ++node) {
         size_t idx = 0;
@@ -217,7 +227,7 @@ double blockmodel_t::compute_dS(mcmc_move_t &move) noexcept {
     size_t s_ = move.target;
 
     if (r_ == s_) {
-        return std::numeric_limits<double>::infinity();
+        return numeric_limits<double>::infinity();
     }
     double entropy0 = 0.;
     double entropy1 = 0.;
@@ -261,7 +271,7 @@ inline double blockmodel_t::compute_dS(const block_move_t& move) noexcept {
     size_t s_ = move.target;
 
     if (r_ == s_ || (r_ < KA_ && s_ >= KA_) || (r_ >= KA_ && s_ < KA_)) {
-        return std::numeric_limits<double>::infinity();
+        return numeric_limits<double>::infinity();
     }
 
     double entropy0 = 0.;
@@ -295,9 +305,9 @@ inline double blockmodel_t::compute_dS(const block_move_t& move) noexcept {
     return entropy1 - entropy0;
 }
 
-inline double blockmodel_t::compute_dS(size_t mb, std::vector<bool>& split_move) noexcept {
+inline double blockmodel_t::compute_dS(size_t mb, vector<bool>& split_move) noexcept {
     if (split_move.empty()) {
-        return std::numeric_limits<double>::infinity();
+        return numeric_limits<double>::infinity();
     }
     size_t r_ = mb;
 
@@ -347,9 +357,9 @@ inline double blockmodel_t::compute_dS(size_t mb, std::vector<bool>& split_move)
     return entropy1 - entropy0;
 }
 
-std::vector<std::vector<size_t> > &blockmodel_t::get_adj_list() noexcept { return adj_list_; }
+vector<vector<size_t> > &blockmodel_t::get_adj_list() noexcept { return adj_list_; }
 
-void blockmodel_t::apply_split_moves(const std::vector<mcmc_move_t>& moves) noexcept {
+void blockmodel_t::apply_split_moves(const vector<mcmc_move_t>& moves) noexcept {
     bool rearranged = false;
     for (auto const& mv: moves) {
         __source__ = mv.source;
@@ -382,7 +392,7 @@ void blockmodel_t::apply_split_moves(const std::vector<mcmc_move_t>& moves) noex
     compute_eta_rk();
 }
 
-bool blockmodel_t::apply_mcmc_moves(const std::vector<mcmc_move_t> &moves, double dS) noexcept {
+bool blockmodel_t::apply_mcmc_moves(const vector<mcmc_move_t> &moves, double dS) noexcept {
     for (auto const &mv: moves) {
         __source__ = mv.source;
         __target__ = mv.target;
@@ -426,26 +436,26 @@ bool blockmodel_t::apply_mcmc_moves(const std::vector<mcmc_move_t> &moves, doubl
     return true;
 }
 
-void blockmodel_t::agg_split(std::mt19937 &engine, bool type, int nm) noexcept {
-    std::vector<bool> split_mv;
+void blockmodel_t::agg_split(mt19937 &engine, bool type, int nm) noexcept {
+    vector<bool> split_mv;
 
-    std::priority_queue<pi, vector<pi>, greater<> > q;
+    priority_queue<pi, vector<pi>, greater<> > q;
 
     if (!type) {  // type-a
         blist_.resize(KA_, 0);
-        std::iota(blist_.begin(), blist_.end(), 0);
+        iota(blist_.begin(), blist_.end(), 0);
     } else {
         blist_.resize(KB_, 0);
-        std::iota(blist_.begin(), blist_.end(), KA_);
+        iota(blist_.begin(), blist_.end(), KA_);
     }
 
-    std::vector<std::vector<bool>> split_moves;
+    vector<vector<bool>> split_moves;
     split_moves.resize(nm * blist_.size());
 
     size_t unchange{0};
     size_t target_r{0};
     size_t change{0};
-    double ddS = std::numeric_limits<double>::infinity();
+    double ddS = numeric_limits<double>::infinity();
     for (auto const &v: blist_) {
         if (n_r_[v] > 1) {
             splitter_.clear();
@@ -457,9 +467,9 @@ void blockmodel_t::agg_split(std::mt19937 &engine, bool type, int nm) noexcept {
         } else {
             continue;
         }
-        std::shuffle(splitter_.begin(), splitter_.end(), engine);
+        shuffle(splitter_.begin(), splitter_.end(), engine);
         for (size_t i_ = 0; i_ < nm; ++i_) {
-            std::shuffle(splitter_.begin(), splitter_.end(), engine);
+            shuffle(splitter_.begin(), splitter_.end(), engine);
             double dS = compute_dS(v, splitter_);
             if (dS < ddS) {
                 split_mv = splitter_;
@@ -469,7 +479,7 @@ void blockmodel_t::agg_split(std::mt19937 &engine, bool type, int nm) noexcept {
             }
         }
     }
-    std::vector<mcmc_move_t> moves;
+    vector<mcmc_move_t> moves;
     moves.resize(change);
     size_t order{0};
     size_t idx{0};
@@ -488,8 +498,8 @@ void blockmodel_t::agg_split(std::mt19937 &engine, bool type, int nm) noexcept {
     apply_split_moves(moves);
 }
 
-inline void blockmodel_t::apply_block_moves(const std::set<size_t>& impacted, const std::vector<std::set<size_t>>& accepted) noexcept {
-    std::map<int, int> n2o_map;
+inline void blockmodel_t::apply_block_moves(const set<size_t>& impacted, const vector<set<size_t>>& accepted) noexcept {
+    map<int, int> n2o_map;
     for (size_t i = 0; i < memberships_.size(); ++i) {
         n2o_map[i] = -1;
     }
@@ -527,14 +537,14 @@ inline void blockmodel_t::apply_block_moves(const std::set<size_t>& impacted, co
     K_ = KA_ + KB_;
 
     if (n != K_) {
-        std::cerr << "[sanity check] inconsistency! \n";
-        std::cerr << "KA_: " << KA_ << "; KB_: " << KB_ << "; n: " << n << "; na_: " << na_ << "; nb_: " << nb_ << "\n";
+        cerr << "[sanity check] inconsistency! \n";
+        cerr << "KA_: " << KA_ << "; KB_: " << KB_ << "; n: " << n << "; na_: " << na_ << "; nb_: " << nb_ << "\n";
         exit(0);
     }
     init_bisbm();
 }
 
-std::vector<mcmc_move_t> blockmodel_t::single_vertex_change(std::mt19937 &engine, size_t vtx) noexcept {
+vector<mcmc_move_t> blockmodel_t::single_vertex_change(mt19937 &engine, size_t vtx) noexcept {
     if ((types_[vtx] == 0 && KA_ == 1) || (types_[vtx] == 1 && KB_ == 1)) {
         __target__ = memberships_[vtx];
     } else if (adj_list_[vtx].empty()) {
@@ -548,7 +558,7 @@ std::vector<mcmc_move_t> blockmodel_t::single_vertex_change(std::mt19937 &engine
         if (random_real(engine) < R_t_) {
             __target__ = size_t(random_real(engine) * K_);
         } else {
-            std::discrete_distribution<size_t> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
+            discrete_distribution<size_t> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
             __target__ = d(gen);
         }
     }
@@ -560,8 +570,8 @@ std::vector<mcmc_move_t> blockmodel_t::single_vertex_change(std::mt19937 &engine
     return moves_;
 }
 
-inline block_move_t &blockmodel_t::single_block_change(std::mt19937 &engine, size_t src) noexcept {
-    if ((src < KA_ && KA_ == 1) || (src >= KA_ && KB_ == 1)) {
+inline block_move_t &blockmodel_t::single_block_change(mt19937 &engine, size_t src) noexcept {
+    if ((KA_ == 1 && src < KA_) || (KB_ == 1 && src >= KA_)) {
         bmove_.source = src;
         bmove_.target = src;
         return bmove_;
@@ -577,7 +587,7 @@ inline block_move_t &blockmodel_t::single_block_change(std::mt19937 &engine, siz
         if (random_real(engine) < R_t_) {
             __target__ = size_t(random_real(engine) * K_);
         } else {
-            std::discrete_distribution<size_t> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
+            discrete_distribution<size_t> d(m_[proposal_t_].begin(), m_[proposal_t_].end());
             __target__ = d(gen);
         }
     }
@@ -593,9 +603,9 @@ inline block_move_t &blockmodel_t::single_block_change(std::mt19937 &engine, siz
 }
 
 
-void blockmodel_t::shuffle_bisbm(std::mt19937 &engine, size_t NA, size_t NB) noexcept {
-    std::shuffle(&memberships_[0], &memberships_[NA], engine);
-    std::shuffle(&memberships_[NA], &memberships_[NA + NB], engine);
+void blockmodel_t::shuffle_bisbm(mt19937 &engine, size_t NA, size_t NB) noexcept {
+    shuffle(&memberships_[0], &memberships_[NA], engine);
+    shuffle(&memberships_[NA], &memberships_[NA + NB], engine);
     compute_n_r();
     compute_k();
     compute_m();
@@ -670,8 +680,8 @@ inline void blockmodel_t::compute_n_r() noexcept {
 }
 
 void blockmodel_t::summary() noexcept {
-    std::clog << "(Ka, Kb) = (" << KA_ << ", " << KB_ << ") \n";
-    std::clog << "entropy: " << entropy() << "\n";
+    clog << "(Ka, Kb) = (" << KA_ << ", " << KB_ << ") \n";
+    clog << "entropy: " << entropy() << "\n";
 }
 
 double blockmodel_t::entropy() noexcept {
