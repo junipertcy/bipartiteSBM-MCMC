@@ -142,7 +142,6 @@ std::tuple<std::vector<int>, std::vector<int>> geospace(T start_a_in, T end_a_in
     } else {
         return std::make_tuple(geospaced_b, geospaced_a);
     }
-
 }
 
 #endif //SBM_INFERENCE_UTIL_HH

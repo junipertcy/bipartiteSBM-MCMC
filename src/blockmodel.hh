@@ -57,6 +57,8 @@ public:
 
     void agg_merge(std::mt19937 &engine, int diff_a, int diff_b, int nm) noexcept;
 
+    void agg_merge(std::mt19937 &engine, int diff, int nm) noexcept;
+
     void agg_split(std::mt19937 &engine, bool type, int nm) noexcept;
 
     double compute_dS(mcmc_move_t& move) noexcept;

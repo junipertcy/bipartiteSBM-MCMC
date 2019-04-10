@@ -44,6 +44,7 @@ int main(int argc, char const *argv[]) {
     size_t steps_await;
     bool randomize = false;
     bool merge = false;
+    bool nature = false;
     std::string cooling_schedule;
     float_vec_t cooling_schedule_kwargs(2, 0);
     size_t seed = 0;
@@ -85,6 +86,8 @@ int main(int argc, char const *argv[]) {
              "Randomize initial block state.")
             ("merge,g",
              "Perform agglomerative merges to the initial block state.")
+            ("nature,u",
+             "Perform agglomerative merges to the natural initial block state.")
             ("seed,d", po::value<size_t>(&seed),
              "Seed of the pseudo random number generator (Mersenne-twister 19937). A random seed is used if seed is not specified.")
             ("help,h", "Produce this help message.");
@@ -227,6 +230,9 @@ int main(int argc, char const *argv[]) {
     if (var_map.count("merge") > 0) {
         merge = true;
     }
+    if (var_map.count("nature") > 0) {
+        nature = true;
+    }
     if (var_map.count("seed") == 0) {
         // seeding based on the clock
         seed = (size_t) std::chrono::high_resolution_clock::now().time_since_epoch().count();
@@ -336,8 +342,11 @@ int main(int argc, char const *argv[]) {
 
     float_vec_t agg_merge_kwargs;
     agg_merge_kwargs.resize(1, 0.);
+
     //blockmodel for the blocks
+    double sigma = 1.01;
     if (merge) {
+
         std::iota(memberships_init.begin(), memberships_init.end(), 0);
         blockmodel_t blockmodel(memberships_init, types_init, NA + NB, NA, NB, epsilon, &adj_list);
         memberships_init.clear();
@@ -345,15 +354,18 @@ int main(int argc, char const *argv[]) {
 
         blockmodel.init_bisbm();
 
-        int_vec_t ka_s;
-        int_vec_t kb_s;
-        std::tie(ka_s, kb_s) = geospace(NA, KA, NB, KB, 1.01);
+        if (nature) {
+            size_t tKA = NA;
+            size_t tKB = NB;
+            size_t tGroups = NA + NB;
+            size_t num_edges = blockmodel.get_num_edges();
+            size_t ceiling = ceil(sqrt(2 * num_edges) / 2);
+            while (tKA >= ceiling && tKB >= ceiling) {
+                blockmodel.agg_merge(engine, ceil(tGroups * (sigma - 1) / sigma), 10);
+                tKA = blockmodel.get_KA();
+                tKB = blockmodel.get_KB();
 
-        for (size_t i = 0; i < ka_s.size() - 1; ++i) {
-            size_t diff_a = -(ka_s[i + 1] - ka_s[i]);
-            size_t diff_b = -(kb_s[i + 1] - kb_s[i]);
-            blockmodel.agg_merge(engine, diff_a, diff_b, 10);
-            if (i != ka_s.size() - 2) {
+                tGroups = tKA + tKB;
                 if (cooling_schedule == "abrupt_cool") {
                     algorithm->anneal(blockmodel, &abrupt_cool_schedule, agg_merge_kwargs, (NA + NB) * 1,
                                       steps_await, engine);
@@ -362,10 +374,32 @@ int main(int argc, char const *argv[]) {
                     return 1;
                 }
             }
+        } else {
+            int_vec_t ka_s;
+            int_vec_t kb_s;
+            std::tie(ka_s, kb_s) = geospace(NA, KA, NB, KB, sigma);
+            for (size_t i = 0; i < ka_s.size() - 1; ++i) {
+                size_t diff_a = -(ka_s[i + 1] - ka_s[i]);
+                size_t diff_b = -(kb_s[i + 1] - kb_s[i]);
+                blockmodel.agg_merge(engine, diff_a, diff_b, 10);
+                if (i != ka_s.size() - 2) {
+                    if (cooling_schedule == "abrupt_cool") {
+                        algorithm->anneal(blockmodel, &abrupt_cool_schedule, agg_merge_kwargs, (NA + NB) * 1,
+                                          steps_await, engine);
+                    } else {
+                        std::cerr << "Only abrupt cooling annealing is supported.";
+                        return 1;
+                    }
+                }
+            }
         }
+
         algorithm->anneal(blockmodel, &abrupt_cool_schedule, cooling_schedule_kwargs, sampling_steps,
                           steps_await, engine);
         blockmodel.summary();
+        if (nature) {
+            std::cout << blockmodel.get_KA() << " " << blockmodel.get_KB() << " ";
+        }
         output_vec<uint_vec_t>(*blockmodel.get_memberships(), std::cout);
     } else {
         size_t ka{0};
@@ -389,7 +423,7 @@ int main(int argc, char const *argv[]) {
             if (diff_a >= 0 && diff_b >= 0) {
                 int_vec_t ka_s;
                 int_vec_t kb_s;
-                std::tie(ka_s, kb_s) = geospace(KA + diff_a, KA, KB + diff_b, KB, 1.01);
+                std::tie(ka_s, kb_s) = geospace(KA + diff_a, KA, KB + diff_b, KB, sigma);
                 if (ka_s.size() == 1) {
                     blockmodel.agg_merge(engine, diff_a, diff_b, 10);
                 }

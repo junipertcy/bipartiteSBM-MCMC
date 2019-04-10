@@ -116,7 +116,6 @@ void blockmodel_t::agg_merge(mt19937 &engine, int diff_a, int diff_b, int nm) no
     if (diff_a + diff_b == 0) {
         return;
     }
-    accepted_set_vec_.clear();
 
     if (diff_a > 0 && diff_b == 0) {
         blist_.resize(KA_, 0);
@@ -139,9 +138,12 @@ void blockmodel_t::agg_merge(mt19937 &engine, int diff_a, int diff_b, int nm) no
     size_t ii{0};
     set<size_t> set_e;
     block_move_t mv;
+    const int DIFFA = diff_a;
+    const int DIFFB = diff_b;
 
     bool minS{true};
     while (minS) {
+        accepted_set_vec_.clear();
         q = priority_queue<pi, vector<pi>, greater<> >();
         set_str_.clear();
         ii = 0;
@@ -198,12 +200,77 @@ void blockmodel_t::agg_merge(mt19937 &engine, int diff_a, int diff_b, int nm) no
             }
             q.pop();
         }
-    }
-    if (q.empty()) {
-        cerr << "queue running out \n";
+        diff_a = DIFFA;
+        diff_b = DIFFB;
     }
     apply_block_moves(set_e, accepted_set_vec_);
 }
+
+void blockmodel_t::agg_merge(mt19937 &engine, int diff, int nm) noexcept {
+    if (diff == 0) {
+        return;
+    }
+    blist_.resize(K_, 0);
+    iota(blist_.begin(), blist_.end(), 0);
+
+    bmoves_.clear();
+    bmoves_.resize(nm * blist_.size());
+
+    compute_b_adj_list();
+    priority_queue<pi, vector<pi>, greater<> > q;
+    set<string> set_str_;
+    string identifier_;
+    size_t ii{0};
+    set<size_t> set_e;
+    block_move_t mv;
+    const int DIFF = diff;
+    bool minS{true};
+    while (minS) {
+        accepted_set_vec_.clear();
+        q = priority_queue<pi, vector<pi>, greater<> >();
+        set_str_.clear();
+        ii = 0;
+        for (auto const &v: blist_) {
+            for (size_t i_ = 0; i_ < nm; ++i_) {
+                bmove_ = single_block_change(engine, v);
+                identifier_ = to_string(bmove_.source) + ">" + to_string(bmove_.target);
+                if (set_str_.count(identifier_) == 0) {
+                    bmoves_[ii] = bmove_;
+                    double dS = compute_dS(bmove_);
+                    q.push(make_pair(dS, ii));
+                    set_str_.insert(identifier_);
+                    ++ii;
+                }
+            }
+        }
+        set_e.clear();
+        while (diff != 0 && !q.empty()) {
+            mv = bmoves_[q.top().second];
+            if (!(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
+                diff -= 1;
+                if (set_e.count(mv.source) == 0 && set_e.count(mv.target) == 0) {
+                    accepted_set_vec_.push_back({mv.source, mv.target});
+                } else {
+                    for (auto &_s: accepted_set_vec_) {
+                        if (_s.count(mv.target) > 0 || _s.count(mv.source) > 0) {
+                            _s.insert({mv.source, mv.target});
+                            break;
+                        }
+                    }
+                }
+                set_e.insert({mv.source, mv.target});
+            }
+            minS = false;
+            if (q.top().first == numeric_limits<double>::infinity()) {
+                minS = true;
+            }
+            q.pop();
+        }
+        diff = DIFF;
+    }
+    apply_block_moves(set_e, accepted_set_vec_);
+}
+
 
 inline void blockmodel_t::compute_b_adj_list() noexcept {
     b_adj_list_.resize(K_);
