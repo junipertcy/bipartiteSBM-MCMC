@@ -86,7 +86,7 @@ void clear_lgamma()
 void init_cache(size_t E)
 {
     init_lgamma(2 * E);
-    init_xlogx(2 * E);
+//    init_xlogx(2 * E);
     init_safelog(2 * E);
 }
 

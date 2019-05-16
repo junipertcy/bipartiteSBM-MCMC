@@ -15,7 +15,7 @@ using namespace std;
 blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size_t g, size_t KA,
                            size_t KB, double epsilon, const adj_list_t *adj_list_ptr) :
         adj_list_ptr_(adj_list_ptr),
-        types_(move(types)) {
+        types_(std::move(types)) {
     KA_ = KA;
     KB_ = KB;
     K_ = KA + KB;
