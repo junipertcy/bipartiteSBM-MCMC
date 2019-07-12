@@ -353,7 +353,6 @@ int main(int argc, char const *argv[]) {
         types_init.clear();
 
         blockmodel.init_bisbm();
-
         if (nature) {
             size_t tKA = NA;
             size_t tKB = NB;

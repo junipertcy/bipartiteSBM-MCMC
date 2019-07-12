@@ -25,13 +25,13 @@ public:
 
     const int_vec_t* get_k(size_t vertex) const noexcept;
 
-    const int get_degree(size_t vertex) const noexcept;
+    int get_degree(size_t vertex) const noexcept;
 
-    const int get_num_edges() const noexcept;
+    int get_num_edges() const noexcept;
 
-    const int get_na() const noexcept;
+    int get_na() const noexcept;
 
-    const int get_nb() const noexcept;
+    int get_nb() const noexcept;
 
     const uint_vec_t* get_memberships() const noexcept;
 

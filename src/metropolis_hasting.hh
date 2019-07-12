@@ -43,10 +43,11 @@ public:
             std::mt19937& engine
     ) const noexcept { return std::vector<mcmc_move_t>(1); }  // bogus virtual implementation
 
+
     // Common methods
     inline bool step(blockmodel_t& blockmodel, size_t vtx, double temperature, std::mt19937 &engine) noexcept;
 
-    inline const double transition_ratio(const blockmodel_t& blockmodel,
+    inline double transition_ratio(const blockmodel_t& blockmodel,
                                          const std::vector<mcmc_move_t>& moves) noexcept;
 
     double anneal(blockmodel_t& blockmodel,

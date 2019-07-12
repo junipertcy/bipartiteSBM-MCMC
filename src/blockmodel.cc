@@ -74,13 +74,13 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size
 
 const int_vec_t *blockmodel_t::get_k(size_t vertex) const noexcept { return &k_[vertex]; }
 
-const int blockmodel_t::get_degree(size_t vertex) const noexcept { return deg_.at(vertex); }
+int blockmodel_t::get_degree(size_t vertex) const noexcept { return deg_.at(vertex); }
 
-const int blockmodel_t::get_num_edges() const noexcept { return num_edges_; }
+int blockmodel_t::get_num_edges() const noexcept { return num_edges_; }
 
-const int blockmodel_t::get_na() const noexcept { return na_; }
+int blockmodel_t::get_na() const noexcept { return na_; }
 
-const int blockmodel_t::get_nb() const noexcept { return nb_; }
+int blockmodel_t::get_nb() const noexcept { return nb_; }
 
 const uint_vec_t *blockmodel_t::get_memberships() const noexcept { return &memberships_; }
 
@@ -138,72 +138,69 @@ void blockmodel_t::agg_merge(mt19937 &engine, int diff_a, int diff_b, int nm) no
     size_t ii{0};
     set<size_t> set_e;
     block_move_t mv;
-    const int DIFFA = diff_a;
-    const int DIFFB = diff_b;
-
-    bool minS{true};
-    while (minS) {
-        accepted_set_vec_.clear();
-        q = priority_queue<pi, vector<pi>, greater<> >();
-        set_str_.clear();
-        ii = 0;
-        for (auto const &v: blist_) {
-            for (size_t i_ = 0; i_ < nm; ++i_) {
-                bmove_ = single_block_change(engine, v);
-                identifier_ = to_string(bmove_.source) + ">" + to_string(bmove_.target);
-                if (set_str_.count(identifier_) == 0) {
-                    bmoves_[ii] = bmove_;
-                    double dS = compute_dS(bmove_);
-                    q.push(make_pair(dS, ii));
-                    set_str_.insert(identifier_);
-                    ++ii;
-                }
+    accepted_set_vec_.clear();
+    q = priority_queue<pi, vector<pi>, greater<> >();
+    set_str_.clear();
+    ii = 0;
+    for (auto const &v: blist_) {
+        for (size_t i_ = 0; i_ < nm; ++i_) {
+            bmove_ = single_block_change(engine, v);
+            identifier_ = to_string(bmove_.source) + ">" + to_string(bmove_.target);
+            if (set_str_.count(identifier_) == 0) {
+                bmoves_[ii] = bmove_;
+                double dS = compute_dS(bmove_);
+                q.push(make_pair(dS, ii));
+                set_str_.insert(identifier_);
+                ++ii;
             }
         }
-        set_e.clear();
-        while (diff_a + diff_b != 0 && !q.empty()) {
-            mv = bmoves_[q.top().second];
-            if (mv.source < KA_ && diff_a != 0) {
-                if (!(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
-                    diff_a -= 1;
-                    if (set_e.count(mv.source) == 0 && set_e.count(mv.target) == 0) {
-                        accepted_set_vec_.push_back({mv.source, mv.target});
-                    } else {
-                        for (auto &_s: accepted_set_vec_) {
-                            if (_s.count(mv.target) > 0 || _s.count(mv.source) > 0) {
-                                _s.insert({mv.source, mv.target});
-                                break;
-                            }
-                        }
-                    }
-                    set_e.insert({mv.source, mv.target});
-                }
-            } else if (mv.source >= KA_ && diff_b != 0) {
-                if (!(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
-                    diff_b -= 1;
-                    if (set_e.count(mv.source) == 0 && set_e.count(mv.target) == 0) {
-                        accepted_set_vec_.push_back({mv.source, mv.target});
-                    } else {
-                        for (auto &_s: accepted_set_vec_) {
-                            if (_s.count(mv.target) > 0 || _s.count(mv.source) > 0) {
-                                _s.insert({mv.source, mv.target});
-                                break;
-                            }
-                        }
-                    }
-                    set_e.insert({mv.source, mv.target});
-                }
-            }
-            minS = false;
-            if (q.top().first == numeric_limits<double>::infinity()) {
-                minS = true;
-            }
-            q.pop();
-        }
-        diff_a = DIFFA;
-        diff_b = DIFFB;
     }
-    apply_block_moves(set_e, accepted_set_vec_);
+    set_e.clear();
+    bool recursive = false;
+    while (diff_a + diff_b != 0 && !q.empty()) {
+        if (q.top().first == numeric_limits<double>::infinity()) {
+            apply_block_moves(set_e, accepted_set_vec_);
+            agg_merge(engine, diff_a, diff_b, nm);
+            recursive = true;
+            break;
+        }
+        mv = bmoves_[q.top().second];
+        if (mv.source < KA_ && diff_a != 0) {
+            if (!(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
+                diff_a -= 1;
+                if (set_e.count(mv.source) == 0 && set_e.count(mv.target) == 0) {
+                    accepted_set_vec_.push_back({mv.source, mv.target});
+                } else {
+                    for (auto &_s: accepted_set_vec_) {
+                        if (_s.count(mv.target) > 0 || _s.count(mv.source) > 0) {
+                            _s.insert({mv.source, mv.target});
+                            break;
+                        }
+                    }
+                }
+                set_e.insert({mv.source, mv.target});
+            }
+        } else if (mv.source >= KA_ && diff_b != 0) {
+            if (!(set_e.count(mv.source) > 0 && set_e.count(mv.target) > 0)) {
+                diff_b -= 1;
+                if (set_e.count(mv.source) == 0 && set_e.count(mv.target) == 0) {
+                    accepted_set_vec_.push_back({mv.source, mv.target});
+                } else {
+                    for (auto &_s: accepted_set_vec_) {
+                        if (_s.count(mv.target) > 0 || _s.count(mv.source) > 0) {
+                            _s.insert({mv.source, mv.target});
+                            break;
+                        }
+                    }
+                }
+                set_e.insert({mv.source, mv.target});
+            }
+        }
+        q.pop();
+    }
+    if (!recursive) {
+        apply_block_moves(set_e, accepted_set_vec_);
+    }
 }
 
 void blockmodel_t::agg_merge(mt19937 &engine, int diff, int nm) noexcept {

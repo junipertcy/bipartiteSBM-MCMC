@@ -100,7 +100,7 @@ double metropolis_hasting::anneal(
     return double(accepted_steps) / double(duration);  // TODO: check these numbers
 }
 
-inline const double metropolis_hasting::transition_ratio(const blockmodel_t& blockmodel,
+inline double metropolis_hasting::transition_ratio(const blockmodel_t& blockmodel,
                                      const std::vector<mcmc_move_t> &moves) noexcept {
     v_ = moves[0].vertex;
     r_ = moves[0].source;
