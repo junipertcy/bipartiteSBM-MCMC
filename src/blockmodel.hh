@@ -105,6 +105,7 @@ private:
     int_vec_t deg_;
     std::vector< std::vector<size_t> > adj_list_;
     std::vector< std::vector<size_t> > b_adj_list_;
+    int_map_vec_t adj_map_;  // for entropy() only
     size_t num_edges_ = 0;
 
     uint_vec_t memberships_;

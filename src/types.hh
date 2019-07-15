@@ -3,11 +3,12 @@
 
 #include <vector>
 #include <set>
+#include <map>
 #include <utility>
 
 using edge_t = std::pair<size_t, size_t>;
 using edge_list_t = std::vector<edge_t>;
-using neighbourhood_t = std::set<size_t>;
+using neighbourhood_t = std::vector<size_t>;
 using adj_list_t = std::vector<neighbourhood_t>;
 
 
@@ -17,6 +18,7 @@ using float_vec_t = std::vector<float>;
 using uint_mat_t = std::vector< std::vector<unsigned int> >;
 using int_mat_t = std::vector< std::vector<int> >;
 using float_mat_t = std::vector< std::vector<float> >;
+using int_map_vec_t = std::vector< std::map<int, int> >;
 
 using pi = std::pair<double, int>;
 

@@ -60,6 +60,7 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size
     // Note that Tiago's MCMC proposal jumps has to randomly access elements in an adjacency list
     // Here, we define an vectorized data structure to make such data access O(1) [else it'll be O(n)].
     adj_list_.resize(adj_list_ptr_->size());
+    adj_map_.resize(adj_list_ptr_->size());
     for (size_t i = 0; i < adj_list_ptr_->size(); ++i) {
         adj_list_[i].resize(adj_list_ptr_->at(i).size(), 0);
     }
@@ -67,6 +68,7 @@ blockmodel_t::blockmodel_t(const uint_vec_t &memberships, uint_vec_t types, size
         size_t idx = 0;
         for (auto nb = adj_list_ptr_->at(node).begin(); nb != adj_list_ptr_->at(node).end(); ++nb) {
             adj_list_[node][idx] = size_t(*nb);
+            ++adj_map_[node][*nb];
             ++idx;
         }
     }
@@ -758,19 +760,26 @@ double blockmodel_t::entropy() noexcept {
         for (auto const &s: r) {
             size_t index_s = &s - &r[0];
             if (index_s > index) {
-                ent -= lgamma_fast(s + 1);
+                ent -= lgamma_fast(s + 1);  // sum_e_rs (sum_e_rr is always 0)
             }
         }
         for (auto const &eta: eta_rk_[index]) {
             ent -= lgamma_fast(eta + 1);
         }
-        ent += lgamma_fast(m_r_[index] + 1);
+        ent += lgamma_fast(m_r_[index] + 1);  // sum_e_r
         ent += log_q(m_r_[index], n_r_[index]);
     }
-
+    for (auto const& y: adj_map_) {
+        size_t index_y = &y - &adj_map_[0];
+        for (auto const& p: y) {
+            if (p.second > 1 && index_y > p.first) {
+                ent += lgamma_fast(p.second + 1);  // sum_m_ij
+            }
+        }
+    }
     ent += lbinom_fast(KA_ * KB_ + num_edges_ - 1, num_edges_);
-    ent += lbinom(na_ - 1, KA_ - 1);
-    ent += lbinom(nb_ - 1, KB_ - 1);
+    ent += lbinom_fast(na_ - 1, KA_ - 1);
+    ent += lbinom_fast(nb_ - 1, KB_ - 1);
     ent += safelog_fast(na_ * nb_);
     ent += lgamma_fast(na_ + 1);
     ent += lgamma_fast(nb_ + 1);

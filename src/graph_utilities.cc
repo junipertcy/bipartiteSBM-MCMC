@@ -42,8 +42,8 @@ adj_list_t edge_to_adj(const edge_list_t& edge_list, size_t num_vertices) {
         if (edge.second >= adj_list.size()) {
             adj_list.resize(edge.second + 1);
         }
-        adj_list[edge.first].insert(edge.second);
-        adj_list[edge.second].insert(edge.first);
+        adj_list[edge.first].push_back(edge.second);
+        adj_list[edge.second].push_back(edge.first);
     }
     return adj_list;
 }
