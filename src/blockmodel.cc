@@ -702,7 +702,7 @@ inline void blockmodel_t::compute_k() noexcept {
 inline void blockmodel_t::compute_m() noexcept {
     m_.clear();
     m_.resize(get_g());
-    for (auto i = 0; i < get_g(); ++i) {
+    for (size_t i = 0; i < get_g(); ++i) {
         m_[i].resize(get_g(), 0);
     }
     for (size_t vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
@@ -773,7 +773,7 @@ double blockmodel_t::entropy() noexcept {
         size_t index_y = &y - &adj_map_[0];
         for (auto const& p: y) {
             if (p.second > 1 && index_y > p.first) {
-                ent += lgamma_fast(p.second + 1);  // sum_m_ij
+                ent += lgamma_fast(p.second + 1);  // sum_m_ij (sum_m_ii is always 0)
             }
         }
     }
@@ -784,5 +784,93 @@ double blockmodel_t::entropy() noexcept {
     ent += lgamma_fast(na_ + 1);
     ent += lgamma_fast(nb_ + 1);
     return ent;
+}
 
+double blockmodel_t::null_entropy() noexcept {
+    size_t KA{1};
+    size_t KB{1};
+    double ent{0};
+
+    uint_vec_t memberships;
+    memberships.resize(na_ + nb_, 0);
+    for (size_t i = na_; i < memberships.size(); ++i) {
+        memberships[i] = 1;
+    }
+    int_mat_t m;
+    int_vec_t m_r;
+    uint_mat_t eta_rk;
+    int_vec_t n_r;
+
+    // m
+    m.resize(2);
+    for (size_t i = 0; i < 2; ++i) {
+        m[i].resize(2, 0);
+    }
+
+    for (size_t vertex = 0; vertex < adj_list_ptr_->size(); ++vertex) {
+        unsigned int vtx = memberships[vertex];
+        for (auto const &nb: adj_list_ptr_->at(vertex)) {
+            ++m[vtx][memberships[nb]];
+        }
+    }
+
+    // m_r
+    m_r.resize(2, 0);
+    size_t _m_r = 0;
+    for (size_t r = 0; r < 2; ++r) {
+        _m_r = 0;
+        for (size_t s = 0; s < 2; ++s) {
+            _m_r += m[r][s];
+        }
+        m_r[r] = unsigned(int(_m_r));
+    }
+
+    // eta_rk
+    eta_rk.resize(2);
+    for (size_t idx = 0; idx < 2; ++idx) {
+        eta_rk[idx].resize(max_degree_ + 1, 0);
+    }
+
+    for (size_t j = 0; j < memberships.size(); ++j) {
+        ++eta_rk[memberships[j]][deg_[j]];
+    }
+
+    // n_r
+    n_r.resize(2, 0);
+    for (auto const &mb: memberships) {
+        ++n_r[mb];
+    }
+
+    for (auto const &k: deg_) {
+        ent -= lgamma_fast(k + 1);
+    }
+    for (auto const &r: m) {
+        size_t index = &r - &m[0];
+        for (auto const &s: r) {
+            size_t index_s = &s - &r[0];
+            if (index_s > index) {
+                ent -= lgamma_fast(s + 1);  // sum_e_rs (sum_e_rr is always 0)
+            }
+        }
+        for (auto const &eta: eta_rk[index]) {
+            ent -= lgamma_fast(eta + 1);
+        }
+        ent += lgamma_fast(m_r[index] + 1);  // sum_e_r
+        ent += log_q(m_r[index], n_r[index]);
+    }
+    for (auto const& y: adj_map_) {
+        size_t index_y = &y - &adj_map_[0];
+        for (auto const& p: y) {
+            if (p.second > 1 && index_y > p.first) {
+                ent += lgamma_fast(p.second + 1);  // sum_m_ij (sum_m_ii is always 0)
+            }
+        }
+    }
+    ent += lbinom_fast(KA * KB + num_edges_ - 1, num_edges_);
+    ent += lbinom_fast(na_ - 1, KA - 1);
+    ent += lbinom_fast(nb_ - 1, KB - 1);
+    ent += safelog_fast(na_ * nb_);
+    ent += lgamma_fast(na_ + 1);
+    ent += lgamma_fast(nb_ + 1);
+    return ent;
 }

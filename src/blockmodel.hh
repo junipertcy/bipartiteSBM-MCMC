@@ -87,6 +87,8 @@ public:
 
     double entropy() noexcept;
 
+    double null_entropy() noexcept;
+
 private:
     /// State variable
     size_t KA_{0};

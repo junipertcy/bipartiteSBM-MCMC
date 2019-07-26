@@ -97,10 +97,10 @@ int main(int argc, char const *argv[]) {
     po::notify(var_map);
 
     if (var_map.count("help") > 0 || argc == 1) {
-        std::cout << "MCMC algorithms for the bipartiteSBM (final output only)\n";
-        std::cout << "Usage:\n"
+        std::clog << "MCMC algorithms for the bipartiteSBM (final output only)\n";
+        std::clog << "Usage:\n"
                   << "  " + std::string(argv[0]) + " [--option_1=value] [--option_s2=value] ...\n";
-        std::cout << description;
+        std::clog << description;
         return 0;
     }
     if (var_map.count("edge_list_path") == 0) {
@@ -346,7 +346,6 @@ int main(int argc, char const *argv[]) {
     //blockmodel for the blocks
     double sigma = 1.01;
     if (merge) {
-
         std::iota(memberships_init.begin(), memberships_init.end(), 0);
         blockmodel_t blockmodel(memberships_init, types_init, NA + NB, NA, NB, epsilon, &adj_list);
         memberships_init.clear();
@@ -354,20 +353,19 @@ int main(int argc, char const *argv[]) {
 
         blockmodel.init_bisbm();
         if (nature) {
-            size_t tKA = NA;
-            size_t tKB = NB;
             size_t tGroups = NA + NB;
-            size_t num_edges = blockmodel.get_num_edges();
-            size_t ceiling = ceil(sqrt(2 * num_edges) / 2);
-            while (tKA >= ceiling && tKB >= ceiling) {
+            double ref_entropy = std::numeric_limits<double>::infinity();
+            std::clog << "blockmodel.null_entropy(): " << blockmodel.null_entropy() << "\n";
+            while (ref_entropy > blockmodel.null_entropy()) {
                 blockmodel.agg_merge(engine, ceil(tGroups * (sigma - 1) / sigma), 10);
-                tKA = blockmodel.get_KA();
-                tKB = blockmodel.get_KB();
+                size_t tKA = blockmodel.get_KA();
+                size_t tKB = blockmodel.get_KB();
 
                 tGroups = tKA + tKB;
                 if (cooling_schedule == "abrupt_cool") {
                     algorithm->anneal(blockmodel, &abrupt_cool_schedule, agg_merge_kwargs, (NA + NB) * 1,
                                       steps_await, engine);
+                    ref_entropy = blockmodel.entropy();
                 } else {
                     std::cerr << "Only abrupt cooling annealing is supported.";
                     return 1;
