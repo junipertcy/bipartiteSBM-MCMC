@@ -353,19 +353,21 @@ int main(int argc, char const *argv[]) {
 
         blockmodel.init_bisbm();
         if (nature) {
+            size_t tKA = NA;
+            size_t tKB = NB;
             size_t tGroups = NA + NB;
+            size_t num_edges = blockmodel.get_num_edges();
+            size_t ceiling = ceil(sqrt(2 * num_edges) / 2);
             double ref_entropy = std::numeric_limits<double>::infinity();
-            std::clog << "blockmodel.null_entropy(): " << blockmodel.null_entropy() << "\n";
-            while (ref_entropy > blockmodel.null_entropy()) {
+            while (tKA >= ceiling && tKB >= ceiling) {
                 blockmodel.agg_merge(engine, ceil(tGroups * (sigma - 1) / sigma), 10);
-                size_t tKA = blockmodel.get_KA();
-                size_t tKB = blockmodel.get_KB();
+                tKA = blockmodel.get_KA();
+                tKB = blockmodel.get_KB();
 
                 tGroups = tKA + tKB;
                 if (cooling_schedule == "abrupt_cool") {
                     algorithm->anneal(blockmodel, &abrupt_cool_schedule, agg_merge_kwargs, (NA + NB) * 1,
                                       steps_await, engine);
-                    ref_entropy = blockmodel.entropy();
                 } else {
                     std::cerr << "Only abrupt cooling annealing is supported.";
                     return 1;
