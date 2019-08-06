@@ -358,7 +358,7 @@ int main(int argc, char const *argv[]) {
             size_t tGroups = NA + NB;
             size_t num_edges = blockmodel.get_num_edges();
             size_t ceiling = ceil(sqrt(2 * num_edges) / 2);
-            double ref_entropy = std::numeric_limits<double>::infinity();
+
             while (tKA >= ceiling && tKB >= ceiling) {
                 blockmodel.agg_merge(engine, ceil(tGroups * (sigma - 1) / sigma), 10);
                 tKA = blockmodel.get_KA();

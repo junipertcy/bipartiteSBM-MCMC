@@ -2,7 +2,6 @@
 #define TYPES_HH
 
 #include <vector>
-#include <set>
 #include <map>
 #include <utility>
 

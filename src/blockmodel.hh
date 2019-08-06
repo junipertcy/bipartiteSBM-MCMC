@@ -5,8 +5,7 @@
 #include <random>
 #include <utility>
 #include <algorithm> // std::shuffle
-#include <vector>
-#include <map>
+#include <set>
 #include <queue>
 #include "types.hh"
 #include "output_functions.hh"
