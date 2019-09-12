@@ -191,11 +191,8 @@ inline double metropolis_hasting::transition_ratio(const blockmodel_t& blockmode
     return entropy1 - entropy0;
 }
 
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// virtual functions implementation
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 /* Implementation for the single vertex change (SBM) */
-inline std::vector<mcmc_move_t> mh_tiago::sample_proposal_distribution(blockmodel_t& blockmodel,
+inline std::vector<mcmc_move_t> metropolis_hasting::sample_proposal_distribution(blockmodel_t& blockmodel,
                                                                  size_t vtx,
                                                                  std::mt19937& engine) const noexcept {
     return blockmodel.single_vertex_change(engine, vtx);

@@ -36,13 +36,8 @@ public:
         ;
     }
 
-    // Virtual methods
-    virtual std::vector<mcmc_move_t> sample_proposal_distribution(
-            blockmodel_t& blockmodel,
-            size_t vtx,
-            std::mt19937& engine
-    ) const noexcept { return std::vector<mcmc_move_t>(1); }  // bogus virtual implementation
-
+    std::vector<mcmc_move_t> sample_proposal_distribution(
+            blockmodel_t& blockmodel, size_t vtx, std::mt19937& engine) const noexcept;
 
     // Common methods
     inline bool step(blockmodel_t& blockmodel, size_t vtx, double temperature, std::mt19937 &engine) noexcept;
@@ -73,13 +68,6 @@ private:
     std::vector<int>::const_iterator citer_m0_s;
     std::vector<int>::const_iterator citer_padded_m0;
 
-};
-
-/* Inherited classes with specific definitions */
-class mh_tiago : public metropolis_hasting {
-public:
-    std::vector<mcmc_move_t>
-    sample_proposal_distribution(blockmodel_t& blockmodel, size_t vtx, std::mt19937& engine) const noexcept override;
 };
 
 #endif // METROPOLIS_HASTING_H

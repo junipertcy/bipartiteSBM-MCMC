@@ -217,7 +217,7 @@ int main(int argc, char const *argv[]) {
         }
     }
     if (var_map.count("epsilon") > 0) {
-        std::clog << "An epsilon param is assigned; we will use Tiago Peixoto's smart MCMC moves. \n";
+//        std::clog << "An epsilon param is assigned; we will use Tiago Peixoto's smart MCMC moves. \n";
     } else {
         std::cerr << "[ERROR] An epsilon param is NOT assigned; \n";
         std::cerr
@@ -338,7 +338,7 @@ int main(int argc, char const *argv[]) {
 
     // Bind proper Metropolis-Hasting algorithm
     std::unique_ptr<metropolis_hasting> algorithm;
-    algorithm = std::make_unique<mh_tiago>();
+    algorithm = std::make_unique<metropolis_hasting>();
 
     float_vec_t agg_merge_kwargs;
     agg_merge_kwargs.resize(1, 0.);
