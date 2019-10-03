@@ -111,7 +111,7 @@ std::tuple<std::vector<int>, std::vector<int>> geospace(T start_a_in, T end_a_in
 
     int start_b = static_cast<int>(start_b_in);
     int end_b = static_cast<int>(end_b_in);
-    if (start_a - end_a > start_b - end_b) {
+    if (start_a - end_a < start_b - end_b) {
         start_a = static_cast<int>(start_b_in);
         end_a = static_cast<int>(end_b_in);
 
