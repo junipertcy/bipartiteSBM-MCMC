@@ -34,4 +34,6 @@ using block_move_t = struct block_move_t
     size_t target;
 };
 
+bool operator< (const block_move_t& p1, const block_move_t& p2);
+
 #endif // TYPES_H

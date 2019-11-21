@@ -6,11 +6,14 @@
 #include <utility>
 #include <algorithm> // std::shuffle
 #include <set>
+#include <string>
 #include <queue>
 #include "types.hh"
 #include "output_functions.hh"
+#include "omp.h"
 
 class blockmodel_t {
+#pragma omp declare reduction(set_merge : std::set<std::pair<std::string, block_move_t>> : omp_out.insert(omp_in.begin(), omp_in.end()))
 
 protected:
     std::uniform_real_distribution<> random_real;

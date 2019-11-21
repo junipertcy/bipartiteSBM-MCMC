@@ -5,4 +5,5 @@ add_executable(
 
 if (Boost_FOUND)
     target_link_libraries(mcmc ${Boost_LIBRARIES})
+
 endif (Boost_FOUND)

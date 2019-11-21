@@ -134,7 +134,7 @@ void blockmodel_t::agg_merge(mt19937 &engine, int diff_a, int diff_b, int nm) no
     bmoves_.resize(nm * blist_.size());
 
     compute_b_adj_list();
-    priority_queue<pi, vector<pi>, greater<> > q;
+    priority_queue<pi, vector<pi>, greater<>> q;
     set<string> set_str_;
     string identifier_;
     size_t ii{0};
@@ -205,6 +205,10 @@ void blockmodel_t::agg_merge(mt19937 &engine, int diff_a, int diff_b, int nm) no
     }
 }
 
+bool operator<(const block_move_t &p1, const block_move_t &p2) {
+    return true;
+}
+
 void blockmodel_t::agg_merge(mt19937 &engine, int diff, int nm) noexcept {
     if (diff == 0) {
         return;
@@ -216,32 +220,44 @@ void blockmodel_t::agg_merge(mt19937 &engine, int diff, int nm) noexcept {
     bmoves_.resize(nm * blist_.size());
 
     compute_b_adj_list();
-    priority_queue<pi, vector<pi>, greater<> > q;
-    set<string> set_str_;
-    string identifier_;
-    size_t ii{0};
+    priority_queue<pi, vector<pi>, greater<>> q;
+    set<pair<string, block_move_t>> identifier_;
     set<size_t> set_e;
     block_move_t mv;
     const int DIFF = diff;
     bool minS{true};
+    std::vector<pair<string, block_move_t>> v;
+
     while (minS) {
         accepted_set_vec_.clear();
         q = priority_queue<pi, vector<pi>, greater<> >();
-        set_str_.clear();
-        ii = 0;
-        for (auto const &v: blist_) {
+#pragma omp parallel for collapse(2) schedule(runtime) private(bmove_) reduction(set_merge:identifier_)
+        for (size_t i = 0; i < blist_.size(); ++i) {
             for (size_t i_ = 0; i_ < nm; ++i_) {
-                bmove_ = single_block_change(engine, v);
-                identifier_ = to_string(bmove_.source) + ">" + to_string(bmove_.target);
-                if (set_str_.count(identifier_) == 0) {
-                    bmoves_[ii] = bmove_;
-                    double dS = compute_dS(bmove_);
-                    q.push(make_pair(dS, ii));
-                    set_str_.insert(identifier_);
-                    ++ii;
-                }
+                bmove_ = single_block_change(engine, blist_[i]);
+                identifier_ = set<pair<string, block_move_t>>{
+                        make_pair(to_string(bmove_.source) + ">" + to_string(bmove_.target), bmove_)
+                };
             }
         }
+
+        size_t ii{0};
+        v.assign(identifier_.begin(), identifier_.end());
+#pragma omp parallel shared(q, bmoves_, ii)
+        {
+#pragma omp for schedule(runtime)
+            for (size_t it = 0; it < v.size(); ++it) {
+                double dS = compute_dS(v[it].second);
+#pragma omp critical
+                {
+                    q.push(make_pair(dS, ii));  // q can be distributed and then merged
+                    bmoves_[ii] = v[it].second;
+                    ii++;
+                };
+            }
+        };
+
+
         set_e.clear();
         while (diff != 0 && !q.empty()) {
             mv = bmoves_[q.top().second];
@@ -311,7 +327,9 @@ double blockmodel_t::compute_dS(mcmc_move_t &move) noexcept {
     int INT_padded_m0s = m_r_.at(s_);
     int INT_padded_m1s = INT_padded_m0s + deg;
 
-    auto criterion = (r_ < KA_) ? [](size_t a, size_t k) { return a >= k; } : [](size_t a, size_t k) { return a < k; };
+    auto criterion = (r_ < KA_) ? [](size_t a, size_t k) { return a >= k; } : [](size_t a, size_t k) {
+        return a < k;
+    };
     for (auto const &_k: ki) {
         size_t index = &_k - &ki.at(0);
         if (criterion(index, KA_) && _k != 0) {
@@ -332,7 +350,7 @@ double blockmodel_t::compute_dS(mcmc_move_t &move) noexcept {
     return entropy1 - entropy0;
 }
 
-inline double blockmodel_t::compute_dS(const block_move_t& move) noexcept {
+inline double blockmodel_t::compute_dS(const block_move_t &move) noexcept {
     size_t r_ = move.source;
     size_t s_ = move.target;
 
@@ -351,7 +369,9 @@ inline double blockmodel_t::compute_dS(const block_move_t& move) noexcept {
     int INT_padded_m0s = m_r_.at(s_);
     int INT_padded_m1 = INT_padded_m0r + INT_padded_m0s;
 
-    auto criterion = (r_ < KA_) ? [](size_t a, size_t k) { return a >= k; } : [](size_t a, size_t k) { return a < k; };
+    auto criterion = (r_ < KA_) ? [](size_t a, size_t k) { return a >= k; } : [](size_t a, size_t k) {
+        return a < k;
+    };
 
     for (auto const &_m_r: m_r_) {
         size_t index = &_m_r - &m_r_.at(0);
@@ -371,13 +391,15 @@ inline double blockmodel_t::compute_dS(const block_move_t& move) noexcept {
     return entropy1 - entropy0;
 }
 
-inline double blockmodel_t::compute_dS(size_t mb, vector<bool>& split_move) noexcept {
+inline double blockmodel_t::compute_dS(size_t mb, vector<bool> &split_move) noexcept {
     if (split_move.empty()) {
         return numeric_limits<double>::infinity();
     }
     size_t r_ = mb;
 
-    auto criterion = (r_ < KA_) ? [](size_t a, size_t k) { return a >= k; } : [](size_t a, size_t k) { return a < k; };
+    auto criterion = (r_ < KA_) ? [](size_t a, size_t k) { return a >= k; } : [](size_t a, size_t k) {
+        return a < k;
+    };
 
     double entropy0 = 0.;
     double entropy1 = 0.;
@@ -423,11 +445,11 @@ inline double blockmodel_t::compute_dS(size_t mb, vector<bool>& split_move) noex
     return entropy1 - entropy0;
 }
 
-vector<vector<size_t> > &blockmodel_t::get_adj_list() noexcept { return adj_list_; }
+vector<vector<size_t>> &blockmodel_t::get_adj_list() noexcept { return adj_list_; }
 
-void blockmodel_t::apply_split_moves(const vector<mcmc_move_t>& moves) noexcept {
+void blockmodel_t::apply_split_moves(const vector<mcmc_move_t> &moves) noexcept {
     bool rearranged = false;
-    for (auto const& mv: moves) {
+    for (auto const &mv: moves) {
         __source__ = mv.source;
         __target__ = mv.target;
         __vertex__ = mv.vertex;
@@ -465,7 +487,8 @@ bool blockmodel_t::apply_mcmc_moves(const vector<mcmc_move_t> &moves, double dS)
         __vertex__ = mv.vertex;
 
         --n_r_[__source__];
-        if (n_r_[__source__] == 0) {  // No move that makes an empty group will be allowed
+        if (n_r_[__source__] ==
+            0) {  // Removing a group is disallowed. todo: move this operation to an earlier stage
             ++n_r_[__source__];
             return false;
         }
@@ -505,7 +528,7 @@ bool blockmodel_t::apply_mcmc_moves(const vector<mcmc_move_t> &moves, double dS)
 void blockmodel_t::agg_split(mt19937 &engine, bool type, int nm) noexcept {
     vector<bool> split_mv;
 
-    priority_queue<pi, vector<pi>, greater<> > q;
+    priority_queue<pi, vector<pi>, greater<>> q;
 
     if (!type) {  // type-a
         blist_.resize(KA_, 0);
@@ -564,7 +587,8 @@ void blockmodel_t::agg_split(mt19937 &engine, bool type, int nm) noexcept {
     apply_split_moves(moves);
 }
 
-inline void blockmodel_t::apply_block_moves(const set<size_t>& impacted, const vector<set<size_t>>& accepted) noexcept {
+inline void
+blockmodel_t::apply_block_moves(const set<size_t> &impacted, const vector<set<size_t>> &accepted) noexcept {
     map<int, int> n2o_map;
     for (size_t i = 0; i < memberships_.size(); ++i) {
         n2o_map[i] = -1;
@@ -769,9 +793,9 @@ double blockmodel_t::entropy() noexcept {
         ent += lgamma_fast(m_r_[index] + 1);  // sum_e_r
         ent += log_q(m_r_[index], n_r_[index]);
     }
-    for (auto const& y: adj_map_) {
+    for (auto const &y: adj_map_) {
         size_t index_y = &y - &adj_map_[0];
-        for (auto const& p: y) {
+        for (auto const &p: y) {
             if (p.second > 1 && index_y > p.first) {
                 ent += lgamma_fast(p.second + 1);  // sum_m_ij (sum_m_ii is always 0)
             }
@@ -858,9 +882,9 @@ double blockmodel_t::null_entropy() noexcept {
         ent += lgamma_fast(m_r[index] + 1);  // sum_e_r
         ent += log_q(m_r[index], n_r[index]);
     }
-    for (auto const& y: adj_map_) {
+    for (auto const &y: adj_map_) {
         size_t index_y = &y - &adj_map_[0];
-        for (auto const& p: y) {
+        for (auto const &p: y) {
             if (p.second > 1 && index_y > p.first) {
                 ent += lgamma_fast(p.second + 1);  // sum_m_ij (sum_m_ii is always 0)
             }
