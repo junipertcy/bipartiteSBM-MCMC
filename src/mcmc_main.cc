@@ -272,6 +272,8 @@ int main(int argc, char const *argv[]) {
             n.resize(z[0] + z[1], 0);
             prepared = !prepared;
             N = memberships_init.size();
+            KA = z[0];
+            KB = z[1];
             std::clog << " ---- read membership from file! ---- \n";
         }
     } else if (var_map.count("mb") > 0) {
